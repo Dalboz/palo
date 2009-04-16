@@ -1,0 +1,172 @@
+////////////////////////////////////////////////////////////////////////////////
+/// @brief palo cube dimension
+///
+/// @file
+///
+/// Copyright (C) 2006-2008 Jedox AG
+///
+/// This program is free software; you can redistribute it and/or modify it
+/// under the terms of the GNU General Public License (Version 2) as published
+/// by the Free Software Foundation at http://www.gnu.org/copyleft/gpl.html.
+///
+/// This program is distributed in the hope that it will be useful, but WITHOUT
+/// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+/// FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+/// more details.
+///
+/// You should have received a copy of the GNU General Public License along with
+/// this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+/// Place, Suite 330, Boston, MA 02111-1307 USA
+/// 
+/// You may obtain a copy of the License at
+///
+/// <a href="http://www.jedox.com/license_palo.txt">
+///   http://www.jedox.com/license_palo.txt
+/// </a>
+///
+/// If you are developing and distributing open source applications under the
+/// GPL License, then you are free to use Palo under the GPL License.  For OEMs,
+/// ISVs, and VARs who distribute Palo with their products, and do not license
+/// and distribute their source code under the GPL, Jedox provides a flexible
+/// OEM Commercial License.
+///
+/// Developed by triagens GmbH, Koeln on behalf of Jedox AG. Intellectual
+/// property rights has triagens GmbH, Koeln. Exclusive worldwide
+/// exploitation right (commercial copyright) has Jedox AG, Freiburg.
+///
+/// @author Frank Celler, triagens GmbH, Cologne, Germany
+/// @author Achim Brandt, triagens GmbH, Cologne, Germany
+////////////////////////////////////////////////////////////////////////////////
+
+#include "Olap/CubeDimension.h"
+
+#include "InputOutput/FileWriter.h"
+
+#include "Olap/SystemDatabase.h"
+#include "Olap/AttributesDimension.h"
+#include "Olap/AttributesCube.h"
+
+namespace palo {
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // functions to load and save a dimension
+  ////////////////////////////////////////////////////////////////////////////////
+
+  void CubeDimension::saveDimensionType (FileWriter* file) {
+    file->appendIdentifier(identifier);
+    file->appendEscapeString(name);
+    file->appendInteger(DIMENSION_TYPE);
+    file->appendInteger(deletable ? 1 : 0);
+    file->appendInteger(renamable ? 1 : 0);
+    file->appendInteger(changable ? 1 : 0);
+    file->nextLine();
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // element functions
+  ////////////////////////////////////////////////////////////////////////////////
+
+
+  Element* CubeDimension::addElement (const string& name, Element::ElementType elementType, User* user, bool useJournal) {
+    if (user) {
+      throw ParameterException(ErrorException::ERROR_DIMENSION_UNCHANGABLE,
+                                 "dimension is not changable",
+                                 "user", (int) user->getIdentifier());
+    }
+    return SystemDimension::addElement(name, Element::STRING, user, useJournal);
+  }
+
+
+  void CubeDimension::deleteElement (Element * element, User* user, bool useJournal) {
+    if (user) {
+      throw ParameterException(ErrorException::ERROR_DIMENSION_UNCHANGABLE,
+                                 "dimension is not changable",
+                                 "user", (int) user->getIdentifier());
+    }
+    return SystemDimension::deleteElement(element, user, useJournal);
+  }
+
+
+
+  void CubeDimension::changeElementName (Element * element, const string& name, User* user) {
+    if (user) {
+      throw ParameterException(ErrorException::ERROR_DIMENSION_UNCHANGABLE,
+                                 "dimension is not changable",
+                                 "user", (int) user->getIdentifier());
+    }
+    return SystemDimension::changeElementName(element, name, user);
+  }
+  
+  
+  void CubeDimension::changeElementType (Element * element, Element::ElementType elementType, User* user,
+                                    bool setConsolidated) {
+    if (user) {
+      throw ParameterException(ErrorException::ERROR_DIMENSION_UNCHANGABLE,
+                                 "dimension is not changable",
+                                 "user", (int) user->getIdentifier());
+    }
+    return SystemDimension::changeElementType(element, Element::STRING, user, setConsolidated);
+  }
+  
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // notification callbacks
+  ////////////////////////////////////////////////////////////////////////////////
+
+  void CubeDimension::notifyAddDimension () {
+
+    // create attribute dimension and cube
+    AttributedDimension::notifyAddDimension(database, name, this);
+  }
+
+
+
+  void CubeDimension::beforeRemoveDimension () {
+    // note: delete all system cubes using this dimension 
+
+    // remove attribute dimension and cube
+    AttributedDimension::beforeRemoveDimension(database, name);
+  }
+
+
+
+  void CubeDimension::notifyRenameDimension (const string& oldName) {
+    // rename attribute dimension and cube
+    AttributedDimension::notifyRenameDimension(database, name, oldName);    
+  }
+
+
+  AttributesDimension* CubeDimension::getAttributesDimension () {    
+    return AttributedDimension::getAttributesDimension(database, name);    
+  }
+    
+
+  AttributesCube* CubeDimension::getAttributesCube () {
+    return AttributedDimension::getAttributesCube(database, name);
+  }
+
+  void CubeDimension::checkElements () {
+    
+    vector<Element*> elements = getElements(0);
+    for (vector<Element*>::iterator i = elements.begin(); i != elements.end(); i++) {
+      Cube* cube = database->lookupCubeByName((*i)->getName());
+      if (!cube || cube->getType() != NORMAL) {
+        deleteElement(*i, 0, false);
+      }
+    }
+    
+    vector<Cube*> cubes = database->getCubes(0);
+    
+    for (vector<Cube*>::iterator i = cubes.begin(); i != cubes.end(); i++) {
+      if ((*i)->getType() == NORMAL) {
+        Element* element = lookupElementByName((*i)->getName());
+        if (!element) {
+          addElement((*i)->getName(), Element::STRING, 0, false);
+        }
+      }      
+      
+    }
+     
+  }
+
+}

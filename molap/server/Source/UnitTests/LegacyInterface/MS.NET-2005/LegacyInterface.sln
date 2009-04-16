@@ -1,0 +1,27 @@
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual C++ Express 2005
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestDimension", "TestDimension.vcproj", "{ADB72EF2-5E9E-44E3-B7DD-A7BDBA52026B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Timings", "Timings.vcproj", "{8F2AEB0B-FC3E-468C-8439-F54FC74238AD}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Demo", "Demo.vcproj", "{64717DC4-B20C-4219-9D31-701CBA7D8B75}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ADB72EF2-5E9E-44E3-B7DD-A7BDBA52026B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{ADB72EF2-5E9E-44E3-B7DD-A7BDBA52026B}.Debug|Win32.Build.0 = Debug|Win32
+		{ADB72EF2-5E9E-44E3-B7DD-A7BDBA52026B}.Release|Win32.ActiveCfg = Release|Win32
+		{ADB72EF2-5E9E-44E3-B7DD-A7BDBA52026B}.Release|Win32.Build.0 = Release|Win32
+		{8F2AEB0B-FC3E-468C-8439-F54FC74238AD}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8F2AEB0B-FC3E-468C-8439-F54FC74238AD}.Release|Win32.ActiveCfg = Release|Win32
+		{64717DC4-B20C-4219-9D31-701CBA7D8B75}.Debug|Win32.ActiveCfg = Debug|Win32
+		{64717DC4-B20C-4219-9D31-701CBA7D8B75}.Release|Win32.ActiveCfg = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
