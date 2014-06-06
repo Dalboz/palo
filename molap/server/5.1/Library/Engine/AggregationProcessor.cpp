@@ -423,11 +423,12 @@ void AggregationProcessor::aggregate()
 			}
 		}
 	}
-	if (resultSize > 1000 && (Logger::isDebug() || Logger::isTrace())) {
-		Logger::debug << "Aggregated area of " << resultSize << " cells. " << storage->size() << " aggregations exists." << endl;
-	}
-	else if (Logger::isDebug() || Logger::isTrace()){
-		Logger::trace << "Aggregated area of " << resultSize << " cells. ";
+	if (Logger::isDebug()) {
+		if (resultSize > 1000) {
+			Logger::debug << "Aggregated area of " << resultSize << " cells. " << storage->size() << " aggregations exists." << endl;
+		} else {
+			Logger::debug << "Aggregated area of " << resultSize << " cells. " << endl;
+		}
 	}
 	// create iterator
 	storageReader = dynamic_cast<ICellMapStream *>(storage.get())->getValues();

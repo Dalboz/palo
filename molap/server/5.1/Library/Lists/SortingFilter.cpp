@@ -402,11 +402,13 @@ void SortingFilter::computeAliases()
 
 	CellValue def;
 	PCellStream cs = attrcube->calculateArea(area, CubeArea::ALL, ALL_RULES, true, UNLIMITED_SORTED_PLAN);
-	while (cs->next()) {
-		const CellValue &val = cs->getValue();
-		const IdentifiersType &key = cs->getKey();
-		if (!(val.isError())) {
-			m_subset_ref.setSortingAlias(key[1], val);
+	if (cs) {
+		while (cs->next()) {
+			const CellValue &val = cs->getValue();
+			const IdentifiersType &key = cs->getKey();
+			if (!(val.isError())) {
+				m_subset_ref.setSortingAlias(key[1], val);
+			}
 		}
 	}
 }

@@ -398,12 +398,15 @@ public:
 	virtual void write(FileWriter &w, CPArea parentArea) const;
 	virtual bool isEqual(const PlanNode& b) const;
 	const vector<uint32_t> &getDimMapping()  const {return dimensionMapping;}
+	const dbID_cubeID &getSourceCubeId() const {return sourceCubeId;}
+	void setSourceCubeId(const dbID_cubeID &sourceCubeId) {this->sourceCubeId = sourceCubeId;}
 private:
 	virtual string getXMLContent() const;
 	SetMultimaps setMultiMaps;
 	SetMultimaps *pSetMultiMaps;
 	double factor;
 	vector<uint32_t> dimensionMapping;
+	dbID_cubeID sourceCubeId;
 };
 
 

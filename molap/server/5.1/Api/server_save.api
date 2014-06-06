@@ -4,7 +4,7 @@
 
 @long_description 
 This request saves the server data, i. e. identifiers and database
-names, to disk. To save database and cube data use the requests
+names, to disk. To save database and/or cube data see the requests
 "/database/save" and "/cube/save".
 
 

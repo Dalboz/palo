@@ -42,7 +42,7 @@ namespace palo {
 class CreateAxis {
 public:
 	CreateAxis(StringBuffer &body, ViewAxis &axis, map<string, pair<PDimension, PSubSet> > &subsets, PCubeArea area, map<IdentifierType, IdentifierType> &id2ord, ViewCalculateJob *job);
-	void createAxis(size_t curr);
+	void createAxis(size_t curr, bool check_limit);
 private:
 	StringBuffer &body;
 	vector<pair<PDimension, SubSet::Iterator> > prevElems;
@@ -81,10 +81,10 @@ CreateAxis::CreateAxis(StringBuffer &body, ViewAxis &axis, map<string, pair<PDim
 	}
 }
 
-void CreateAxis::createAxis(size_t curr)
+void CreateAxis::createAxis(size_t curr, bool check_limit)
 {
 	if (curr == axis.as.size()) {
-		if (++axisSize > MAX_SIZE) {
+		if (check_limit && ++axisSize > MAX_SIZE) {
 			throw ParameterException(ErrorException::ERROR_MAX_ELEM_REACHED, "Axis too big.", PaloRequestHandler::VIEW_AXES, 0);
 		}
 		for (vector<pair<PDimension, SubSet::Iterator> >::iterator it = prevElems.begin(); it != prevElems.end(); ++it) {
@@ -94,7 +94,7 @@ void CreateAxis::createAxis(size_t curr)
 			} else {
 				job->appendElement(&body, it->first, it->second.getElement(), 0, false, vRights, it->second.getDepth(), it->second.getIndent());
 			}
-			body.appendCsvString(it->second.getSearchAlias());
+			body.appendCsvString(it->second.getSearchAlias().empty() ? "" : StringUtils::escapeString(it->second.getSearchAlias()));
 			body.appendCsvString(it->second.getPath());
 			body.appendEol();
 		}
@@ -138,7 +138,7 @@ void CreateAxis::createAxis(size_t curr)
 					s->insert(eit.getId());
 					currAreas[curr]->insert(id2ord[it_sub->second.first->getId()], s, true);
 				}
-				createAxis(curr + 1);
+				createAxis(curr + 1, check_limit);
 			}
 		}
 	}
@@ -199,7 +199,7 @@ void ViewCalculateJob::compute()
 			body.appendText("]");
 			body.appendEol();
 			CreateAxis ca(body, jobRequest->viewAxes->at(i), subsets, area, id2ord, this);
-			ca.createAxis(0);
+			ca.createAxis(0, cube || subsets.size() > 1);
 		}
 	}
 
@@ -211,7 +211,7 @@ void ViewCalculateJob::compute()
 			user->fillRights(vRights, User::cellDataRight, database, cube);
 		}
 		bool checkPermissions = cube->getMinimumAccessRight(user) == RIGHT_NONE;
-		PCubeArea calcArea = checkRights(vRights, checkPermissions, area, 0, cube, database, user, noPermission, unknown, isNoPermission, isUnknown, this->dims);
+		PCubeArea calcArea = checkRights(vRights, checkPermissions, area, 0, cube, database, user, true, noPermission, isNoPermission, this->dims);
 
 		if (jobRequest->viewArea && !jobRequest->viewArea->properties.empty()) {
 			if (jobRequest->properties) {
@@ -234,10 +234,9 @@ void ViewCalculateJob::compute()
 		}
 		body.appendText("[Area]");
 		body.appendEol();
-		uint64_t maxCC = max_cell_count;
 		jobRequest->showRule = true;
 		jobRequest->showLockInfo = true;
-		loop(area, calcArea, cs, &maxCC, props, vRights, 0, false);
+		loop(area, calcArea, cs, NULL, props, vRights, 0, false);
 	}
 }
 
@@ -267,7 +266,7 @@ void ViewCalculateJob::createRules()
 				PDimension dim = database->findDimensionByName(dimit->second, user, true);
 				dimList->set(dim);
 				vector<string> rules;
-				StringUtils::splitString3(asit->calculation, rules, ';');
+				StringUtils::splitString3(asit->calculation, rules, ';', false);
 				bool simple = false;
 				int pos = -100000;
 				string userpos;
@@ -281,7 +280,7 @@ void ViewCalculateJob::createRules()
 						continue;
 					}
 					vector<string> parts;
-					StringUtils::splitString3(*rit, parts, '=');
+					StringUtils::splitString3(*rit, parts, '=', false);
 					if (parts.size() < 2) {
 						throw ParameterException(ErrorException::ERROR_PARSING_RULE, "invalid rule", PaloRequestHandler::VIEW_AXES, *rit);
 					}

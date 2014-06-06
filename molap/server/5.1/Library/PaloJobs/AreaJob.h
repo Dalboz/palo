@@ -67,20 +67,18 @@ public:
 	////////////////////////////////////////////////////////////////////////////////
 
 	AreaJob(PaloJobRequest* jobRequest) :
-		DirectPaloJob(jobRequest), max_cell_count(s_max_cell_count), isNoPermission(false), isUnknown(false) {
+		DirectPaloJob(jobRequest), max_cell_count(s_max_cell_count), isNoPermission(false) {
 	}
 
 	PCellStream getCellPropsStream(CPDatabase db, CPCube cube, CPCubeArea area, const IdentifiersType &properties);
 	void fillProps(vector<CellValue> &result, const IdentifiersType &key, PCellStream &propStream, const IdentifiersType &properties, RightsType right);
-	static double fillEmptyDim(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, vector<IdentifiersType> &area, PCube &cube, PDatabase &database, PUser &user, vector<uint32_t> *numElemCount, size_t pos);
-	static PCubeArea checkRights(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, CPArea area, bool* hasStringElem, PCube &cube, PDatabase &database, PUser &user, PArea &noPermission, PArea &unknown, bool &isNoPermission, bool &isUnknown, vector<CPDimension> &dims);
+	static double fillEmptyDim(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, vector<IdentifiersType> &area, PCube &cube, PDatabase &database, PUser &user, vector<set<uint32_t> > *numElemCount, size_t pos);
+	static PCubeArea checkRights(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, CPArea area, bool* hasStringElem, PCube &cube, PDatabase &database, PUser &user, bool reduceCalcArea, PArea &noPermission, bool &isNoPermission, vector<CPDimension> &dims);
 
 protected:
 	size_t max_cell_count;
 	PArea noPermission;
-	PArea unknown;
 	bool isNoPermission;
-	bool isUnknown;
 	vector<CPDimension> dims;
 
 	virtual void appendValue(const IdentifiersType &key, const CellValue &value, const vector<CellValue> &prop_vals);
@@ -89,10 +87,10 @@ protected:
 	virtual bool checkCondition(const CellValue &value) const {return true;}
 private:
 	static bool checkElement(CPDimension &dim, Element *e, vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, PDatabase &database, PUser &user);
-	void generateEmptyValues(Area::PathIterator &curr, const Area::PathIterator &end, const IdentifiersType *newKey, uint64_t &freeCount);
-	void generateEmptyValue(Area::PathIterator &curr, uint64_t &freeCount);
-	void generateErrors(Area::PathIterator &curr, const Area::PathIterator &end, const IdentifiersType *newKey, uint64_t &freeCount, PArea &restriction, ErrorException::ErrorType error);
-	void generateError(Area::PathIterator &curr, uint64_t &freeCount, PArea &restriction, ErrorException::ErrorType error);
+	void generateMissingValues(Area::PathIterator &curr, const Area::PathIterator &end, const IdentifiersType *newKey, PCellStream props, bool emptyValues, bool getCellRight, vector<User::RoleDbCubeRight> &vRights, bool isReadableArea, User::RightSetting rs, uint64_t &freeCount);
+	void generateMissingValues_intern(Area::PathIterator &curr, PCellStream props, bool emptyValues, bool getCellRight, vector<User::RoleDbCubeRight> &vRights, bool isReadableArea, User::RightSetting rs, uint64_t &freeCount);
+	void generateValue(const IdentifiersType &key, const CellValue value, PCellStream props, bool getCellRight, vector<User::RoleDbCubeRight> &vRights, bool isReadableArea, User::RightSetting rs, uint64_t &freeCount);
+	bool generateError(Area::PathIterator &curr, uint64_t &freeCount, PArea &restriction, ErrorException::ErrorType error);
 	void insertProperties(vector<CellValue> &result, PCellStream &propStream, const IdentifiersType &key);
 	bool keyCompareProp(const IdentifiersType &key, const IdentifiersType &keyProp);
 	bool isReadable(PCubeArea area, User::RightSetting& rs) const;

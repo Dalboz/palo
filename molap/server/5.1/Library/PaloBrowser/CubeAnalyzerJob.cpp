@@ -122,7 +122,7 @@ void CubeAnalyzerJob::compute()
 	PPlanNode plan;
 	if (numResult) {
 		vector<User::RoleDbCubeRight> vRights;
-		PCubeArea calcArea = checkRights(vRights, false, cubeArea, 0, cube, database, user, noPermission, unknown, isNoPermission, isUnknown, this->dims);
+		PCubeArea calcArea = checkRights(vRights, false, cubeArea, 0, cube, database, user, true, noPermission, isNoPermission, this->dims);
 		plan = cube->createPlan(calcArea, CubeArea::ALL, RulesType(DIRECT_RULES || NOCACHE), true, UNLIMITED_SORTED_PLAN);
 	}
 

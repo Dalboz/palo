@@ -735,7 +735,7 @@ void PaloJob::findRules(bool write)
 
 }
 
-void PaloJob::findPathsIntern(vector<IdentifiersType> *sourcePaths, PPaths &targetPaths, set<size_t> *invalidPaths)
+void PaloJob::findPathsIntern(vector<IdentifiersType> *sourcePaths, PPaths &targetPaths, set<size_t> *invalidPaths, User *user)
 {
 	findCube(true, false);
 
@@ -768,7 +768,7 @@ void PaloJob::findPathsIntern(vector<IdentifiersType> *sourcePaths, PPaths &targ
 					if (dims[i]->getDimensionType() == Dimension::VIRTUAL) {
 						path[i] = it.at(i);
 					} else {
-						path[i] = dims[i]->findElement(it.at(i), user.get(), false)->getIdentifier();
+						path[i] = dims[i]->findElement(it.at(i), user, false)->getIdentifier();
 					}
 				} catch (ErrorException &e) {
 					if (invalidPaths && (e.getErrorType() == ErrorException::ERROR_ELEMENT_NOT_FOUND)) {
@@ -804,17 +804,17 @@ void PaloJob::updateLicenses()
 void PaloJob::findLockedPaths(set<size_t> *invalidPaths)
 {
 	if (jobRequest->lockedPaths) {
-		findPathsIntern(jobRequest->lockedPaths, lockedPaths, invalidPaths);
+		findPathsIntern(jobRequest->lockedPaths, lockedPaths, invalidPaths, user.get());
 	} else {
 		// optional argument, ok if missing
 		//throw ParameterException(ErrorException::ERROR_INVALID_COORDINATES, "path is empty, list of element identifiers is missing", PaloRequestHandler::ID_LOCKED_PATHS, "");
 	}
 }
 
-void PaloJob::findCellPaths(set<size_t> *invalidPaths)
+void PaloJob::findCellPaths(set<size_t> *invalidPaths, User *user)
 {
 	if (jobRequest->paths) {
-		findPathsIntern(jobRequest->paths, cellPaths, invalidPaths);
+		findPathsIntern(jobRequest->paths, cellPaths, invalidPaths, user);
 	} else if (jobRequest->pathsName) {
 		findCube(true, false);
 
@@ -843,7 +843,7 @@ void PaloJob::findCellPaths(set<size_t> *invalidPaths)
 			} else {
 				for (size_t i = 0; i < numDimensions; i++) {
 					try {
-						path[i] = dims[i]->findElementByName(names.at(i), user.get(), false)->getIdentifier();
+						path[i] = dims[i]->findElementByName(names.at(i), user, false)->getIdentifier();
 					} catch (ErrorException &e) {
 						if (invalidPaths && (e.getErrorType() == ErrorException::ERROR_ELEMENT_NOT_FOUND)) {
 							invalidPaths->insert(j);

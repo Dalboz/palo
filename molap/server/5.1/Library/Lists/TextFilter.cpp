@@ -63,12 +63,14 @@ void TextFilter::findRegexInAttribute(const boost::regex& rx, const long attr_id
 	area->insert(1, s);
 
 	PCellStream cs = attrcube->calculateArea(area, CubeArea::ALL, ALL_RULES, false, UNLIMITED_SORTED_PLAN);
-	while (cs->next()) {
-		const CellValue &val = cs->getValue();
-		const IdentifiersType &key = cs->getKey();
-		if (val.isString()) {
-			if (boost::regex_search(val, rx)) {
-				m_matches[key[1]] = true;
+	if (cs) {
+		while (cs->next()) {
+			const CellValue &val = cs->getValue();
+			const IdentifiersType &key = cs->getKey();
+			if (val.isString()) {
+				if (boost::regex_search(val, rx)) {
+					m_matches[key[1]] = true;
+				}
 			}
 		}
 	}

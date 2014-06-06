@@ -116,6 +116,7 @@ public:
 	////////////////////////////////////////////////////////////////////////////////
 
 	void compute() {
+		server = Context::getContext()->getServerCopy(); // to increase server token
 		checkToken(server);
 
 		if (server->isBlocking()) {
@@ -150,6 +151,8 @@ public:
 				worker->notifyLogout("<unknown>");
 			}
 		}
+
+		server->commit();
 
 		generateOkResponse(server);
 	}

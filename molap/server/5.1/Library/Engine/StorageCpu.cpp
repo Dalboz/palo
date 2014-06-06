@@ -3302,7 +3302,8 @@ bool StorageCpu::Writer::movePages(Processor *p, const IdentifiersType *key)
 		Slim<uint8_t>::PSlimPage pagecopy;
 		uint32_t nops = 0;
 
-		bool copyBookMark = ds.index2 && p->storage.index2;
+		bool copyBookMark = ds.index2 && p->storage.index2 && (!ds.index2->empty() || key || spos != currSize);
+//		bool copyBookMark = ds.index2 && p->storage.index2;
 
 		//////////////////////////////
 		// copy start page content
@@ -3375,6 +3376,15 @@ bool StorageCpu::Writer::movePages(Processor *p, const IdentifiersType *key)
 			}
 			pages.push_back(pagecopy);
 			ds.emptySpace += nops;
+		}
+
+//		if (ds.index2 && p->storage.index2 && !key && spos == currSize) {
+		if (ds.index2 && p->storage.index2 && ds.index2->empty() && !key && spos == currSize) {
+			// compare content of both indexes
+//			if (*ds.index2 != *p->storage.index2) {
+//				throw ErrorException(ErrorException::ERROR_INTERNAL, "StorageCpu::Writer::movePages index differs in unchanged(?) storage");
+//			}
+			ds.index2 = p->storage.index2;
 		}
 
 		//////////////////////////////

@@ -202,22 +202,26 @@ void HttpServer::handleRequest(HttpServerTask* task, HttpRequest* request)
 			}
 		}
 	} catch (const ErrorException& e) {
-		HttpResponse* response = new HttpResponse(HttpResponse::BAD);
-
-		StringBuffer& body = response->getBody();
-
-		body.appendCsvInteger((int32_t)e.getErrorType());
-		body.appendCsvString(StringUtils::escapeString(ErrorException::getDescriptionErrorType(e.getErrorType())));
-		body.appendCsvString(StringUtils::escapeString(e.getMessage()));
-		body.appendEol();
-
-		Logger::warning << "error code: " << (int32_t)e.getErrorType() << " description: " << ErrorException::getDescriptionErrorType(e.getErrorType()) << " message: " << e.getMessage() << endl;
-
-		jobRequest = new DirectHttpResponse(request->getRequestPath(), response);
-
+		jobRequest = handleException(e, request);
 	}
 
 	task->handleJobRequest(jobRequest);
+}
+
+HttpJobRequest *HttpServer::handleException(const ErrorException& e, HttpRequest* request)
+{
+	HttpResponse* response = new HttpResponse(HttpResponse::BAD);
+
+	StringBuffer& body = response->getBody();
+
+	body.appendCsvInteger((int32_t)e.getErrorType());
+	body.appendCsvString(StringUtils::escapeString(ErrorException::getDescriptionErrorType(e.getErrorType())));
+	body.appendCsvString(StringUtils::escapeString(e.getMessage()));
+	body.appendEol();
+
+	Logger::warning << "error code: " << (int32_t)e.getErrorType() << " description: " << ErrorException::getDescriptionErrorType(e.getErrorType()) << " message: " << e.getMessage() << endl;
+
+	return new DirectHttpResponse(request->getRequestPath(), response);
 }
 
 HttpServerTask* HttpServer::CreateConnectionTask()

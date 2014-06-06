@@ -158,6 +158,10 @@ void Dimension::setStatus(PDatabase database, DimensionStatus status)
 	}
 }
 
+uint32_t Dimension::getToken() const {
+	return token;
+}
+
 vector<CPCube> Dimension::getCubes(PUser user, PDatabase db, const ItemType *filterType) const
 {
 	vector<CPCube> result;

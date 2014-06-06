@@ -361,18 +361,22 @@ double StringUtils::stringToDouble(const string& str)
 }
 
 string StringUtils::convertTimeToString(uint64_t tt) {
-#if defined(_MSC_VER)
 	struct tm t;
+#if defined(_MSC_VER)
 	_localtime64_s(&t, (const __time64_t *)&tt);
 #else
-	boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
-	while (tt) {
-		long c = (long)std::min(tt, (uint64_t)INT_MAX);
-		epoch += boost::posix_time::seconds(c);
-		tt -= c;
+	if (sizeof(time_t) == 4 && tt > INT_MAX) {
+		boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
+		epoch = boost::date_time::c_local_adjustor<boost::posix_time::ptime>::utc_to_local(epoch);
+		while (tt) {
+			long c = (long)std::min(tt, (uint64_t)INT_MAX);
+			epoch += boost::posix_time::seconds(c);
+			tt -= c;
+		}
+		t = boost::posix_time::to_tm(epoch);
+	} else {
+		localtime_r((time_t *)&tt, &t);
 	}
-	epoch = boost::date_time::c_local_adjustor<boost::posix_time::ptime>::utc_to_local(epoch);
-	struct tm t = boost::posix_time::to_tm(epoch);
 #endif
 	char timeBuf[32];
 	strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &t);
@@ -663,7 +667,7 @@ void StringUtils::splitString2(const char* ss, const char* se, vector<vector<str
 		delete sss;
 }
 
-void StringUtils::splitString3(const string& line, vector<string> &elements, char seperator)
+void StringUtils::splitString3(const string& line, vector<string> &elements, char seperator, bool empty)
 {
 	stringstream part;
 	char inquote = 0;
@@ -689,9 +693,27 @@ void StringUtils::splitString3(const string& line, vector<string> &elements, cha
 		}
 		part << *it;
 	}
-	if (!part.str().empty()) {
+	if (!part.str().empty() || empty) {
 		elements.push_back(part.str());
 	}
+}
+
+string StringUtils::unQuote(const string &s)
+{
+	stringstream res;
+	if (s == "\"\"") {
+		return string();
+	}
+	for (string::const_iterator it = s.begin(); it != s.end(); ++it) {
+		if (*it == '\"') {
+			if (it + 1 != s.end() && *(it + 1) == '\"') {
+				res << *(it++);
+			}
+		} else {
+			res << *it;
+		}
+	}
+	return res.str();
 }
 
 }

@@ -168,6 +168,9 @@ void User::checkRoleRight(RightObject object, RightsType requiredRight) const
 
 User::MinMaxRight User::getDatabaseDataRight(IdentifierType dbId) const
 {
+	if (isAdmin) {
+		return make_pair(RIGHT_DELETE, RIGHT_DELETE);
+	}
 	DbRightsMap::const_iterator it = dbRights.find(dbId);
 	if (it == dbRights.end()) {
 		throw ErrorException(ErrorException::ERROR_INTERNAL, "database not found in User::getDatabaseDataRight method");
@@ -1126,67 +1129,90 @@ bool User::checkDimsAndCells(CPDatabase db, CPCube cube, set<IdentifierType> &us
 	}
 
 	if (enough) {
-		PCube groupCellDataCube = getCellDataRightCube(db, cube);
+		for (igr = 0; igr < vGroups.size(); igr++) {
+			enough = true;
+			IdentifierType groupId = vGroups[igr];
+			bool emptyCell = vRights[igr].cubeRight == RIGHT_EMPTY;
+			PArea emptyArea(new Area(dimCount));
 
-		vector<PCellStream> streams(groupCount);
-		if (checkCells) {
-			igr = 0;
-			for (set<IdentifierType>::const_iterator git = userGroups.begin(); git != userGroups.end(); ++git, igr++) {
-				PCubeArea garea(new CubeArea(db, groupCellDataCube, dimCount + 1)); //different copy for each group
+			// check element rights
+			for (size_t i = 0; i < dimCount; i++) {
+				PSet sEmpty(new Set);
+				bool emptyElem = false;
+				CPSet s = area->getDim(i);
+				if (erm[i]) {
+					for (Set::Iterator sit = s->begin(); sit != s->end(); ++sit) {
+						ElemRightsMap::iterator it = erm[i]->find(make_pair(groupId, *sit));
+						if (it != erm[i]->end()) {
+							if (it->second < requiredRight) {
+								enough = false;
+								break;
+							}
+						} else {
+							emptyElem = true;
+							if (checkCells && emptyCell) {
+								sEmpty->insert(*sit);
+							}
+						}
+					}
+				} else {
+					emptyElem = rtSingle[i] == RIGHT_EMPTY;
+				}
+				if (!emptyElem) {
+					emptyCell = false;
+				}
+				if (checkCells && emptyCell) {
+					emptyArea->insert(i, erm[i] ? sEmpty : s);
+				}
+			}
+
+			if (checkCells) {
+				// check cell rights
+				PCube groupCellDataCube = getCellDataRightCube(db, cube);
+				PCubeArea garea(new CubeArea(db, groupCellDataCube, dimCount + 1));
 				for (size_t i = 0; i < dimCount; i++) {
 					garea->insert((IdentifierType)i + 1, area->getDim(i));
 				}
 				PSet s(new Set);
-				s->insert(*git);
+				s->insert(groupId);
 				garea->insert(0, s);
 
-				streams[igr] = groupCellDataCube->calculateArea(garea, CubeArea::ALL, RulesType(ALL_RULES | NO_RULE_IDS), false, UNLIMITED_UNSORTED_PLAN);
-			}
-		}
-
-		for (Area::PathIterator pit = area->pathBegin(); pit != area->pathEnd(); ++pit) {
-			const IdentifiersType &key = *pit;
-			if (checkCells) {
-				for (size_t i = 0; i < groupCount; i++) {
-					streams[i]->next();
-				}
-			}
-
-			enough = false;
-			igr = 0;
-			for (set<IdentifierType>::const_iterator git = userGroups.begin(); git != userGroups.end(); ++git, igr++) {
-				bool empty = vRights[igr].cubeRight == RIGHT_EMPTY;
-				size_t i;
-				for (i = 0; i < dimCount; i++) {
-					if (erm[i]) {
-						ElemRightsMap::iterator it = erm[i]->find(make_pair(*git, key[i]));
-						if (it != erm[i]->end()) {
-							empty = false;
-							if (it->second < requiredRight) {
-								break;
-							}
-						}
-					} else {
-						empty = empty && (rtSingle[i] == RIGHT_EMPTY);
+				PCellStream cs = groupCellDataCube->calculateArea(garea, CubeArea::ALL, RulesType(ALL_RULES | NO_RULE_IDS), true, UNLIMITED_UNSORTED_PLAN);
+				while (cs->next()) {
+					if (stringToRightsType(cs->getValue()) < requiredRight) {
+						enough = false;
+						break;
 					}
 				}
-				if (i == dimCount) { // all elements are accepted for the current group
-					CellValue value = checkCells ? streams[igr]->getValue() : CellValue::NullString;
-					if (value.isEmpty()) {
-						if (empty) {
-							enough = db->getDefaultRight() >= requiredRight;
-						} else {
-							enough = true;
+
+				// check if all cells from emptyArea contains a value in groupCellDataCube
+				if (enough && emptyCell) {
+					if (!emptyArea->getSize()) {
+						throw ErrorException(ErrorException::ERROR_INTERNAL, "invalid area in User::checkDimsAndCells method");
+					}
+					for (size_t i = 0; i < dimCount; i++) {
+						garea->insert((IdentifierType)i + 1, emptyArea->getDim(i));
+					}
+
+					Area::PathIterator pit = emptyArea->pathBegin();
+					PCellStream cs = groupCellDataCube->calculateArea(garea, CubeArea::ALL, RulesType(ALL_RULES | NO_RULE_IDS), true, UNLIMITED_SORTED_PLAN);
+					while (cs->next()) {
+						const char* p1 = (char *)&cs->getKey()[0];
+						const char* p2 = (char *)&(*pit)[0];
+						if (memcmp(p1 + sizeof(IdentifierType), p2, dimCount * sizeof(IdentifierType))) {
+							break;
 						}
-					} else {
-						enough = stringToRightsType(value) >= requiredRight;
+						++pit;
+					}
+					if (pit == emptyArea->pathEnd()) {
+						emptyCell = false;
 					}
 				}
-				if (enough) { // the cell is accepted, continue with the next cell; otherwise check the next group
-					break;
-				}
 			}
-			if (!enough) {
+			if (enough && emptyCell) {
+				enough = db->getDefaultRight() >= requiredRight;
+			}
+			if (enough) { // othewise check the next group
 				break;
 			}
 		}
@@ -1305,6 +1331,9 @@ bool User::checkElementRight(IdentifierType dbId, IdentifierType dimId, Identifi
 
 RightsType User::getElementRight(IdentifierType dbId, IdentifierType dimId, IdentifierType elemId, vector<RoleDbCubeRight> &vRights, bool checkRole) const
 {
+	if (isAdmin) {
+		return RIGHT_DELETE;
+	}
 	DimRightsMap::const_iterator dit = dimRights.find(make_pair(dbId, dimId));
 	if (dit == dimRights.end()) {
 		throw ErrorException(ErrorException::ERROR_INTERNAL, "invalid dimension in User::getElementRight method");

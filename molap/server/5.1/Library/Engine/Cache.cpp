@@ -144,7 +144,7 @@ ValueCache::QueryCache::~QueryCache()
 		currAreas.reset(new CachedAreas(*currAreas));
 		if (inserted->size()) {
 			storage = COMMITABLE_CAST(StorageCpu, storage->copy());
-			storage->commitExternalChanges(false, dynamic_cast<ICellMapStream *>(inserted.get())->getValues(), inserted->size() == 1, false);
+			storage->commitExternalChanges(false, dynamic_cast<ICellMapStream *>(inserted.get())->getValues(), inserted->size(), false);
 			storage->merge(CPCommitable(), PCommitable());
 		}
 

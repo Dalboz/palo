@@ -77,11 +77,9 @@ public:
 		}
 		checkProperties();
 
-		PCubeArea areaCalc(new CubeArea(database, cube, *jobRequest->path));
-
 		RulesType rulesType = jobRequest->showRule ? ALL_RULES : RulesType(ALL_RULES | NO_RULE_IDS);
 
-		PCellStream cs = cube->calculateArea(areaCalc, CubeArea::ALL, rulesType, false, UNLIMITED_UNSORTED_PLAN);
+		PCellStream cs = cube->calculateArea(cellPath, CubeArea::ALL, rulesType, false, UNLIMITED_UNSORTED_PLAN);
 		response = new HttpResponse(HttpResponse::OK);
 		setToken(cube);
 		vector<CellValue> prop_vals;
@@ -100,7 +98,7 @@ public:
 				r = user->getCellRight(database, cube, *jobRequest->path, vRights);
 			}
 
-			PCellStream props = getCellPropsStream(database, cube, areaCalc, *jobRequest->properties);
+			PCellStream props = getCellPropsStream(database, cube, cellPath, *jobRequest->properties);
 			fillProps(prop_vals, *jobRequest->path, props, *jobRequest->properties, r);
 		}
 		generateCellValueResponse(*jobRequest->path, value, prop_vals);

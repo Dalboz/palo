@@ -139,92 +139,113 @@ public:
 	////////////////////////////////////////////////////////////////////////////////
 
 	void compute() {
-		checkToken(server);
 		boost::shared_ptr<PaloSession> session;
-		bool useMd5 = true;
+		bool ret = false;
+		for (int commitTry = 0; commitTry < Commitable::COMMIT_REPEATS_CELL_REPLACE; commitTry++) {
+			bool optimistic = commitTry == 0;
 
-		machine = jobRequest->machineString ? *jobRequest->machineString : "";
-		required = jobRequest->requiredFeatures ? *jobRequest->requiredFeatures : "";
-		optional = jobRequest->optionalFeatures ? *jobRequest->optionalFeatures : "";
-		description = jobRequest->newName ? *jobRequest->newName : "";
-		string sudoName = "";
+			server = Context::getContext()->getServerCopy();
+			checkToken(server);
+			bool useMd5 = true;
 
-		if (!ssoLogin) {
-			// extract and check username
-			username = jobRequest->user;
+			machine = jobRequest->machineString ? *jobRequest->machineString : "";
+			required = jobRequest->requiredFeatures ? *jobRequest->requiredFeatures : "";
+			optional = jobRequest->optionalFeatures ? *jobRequest->optionalFeatures : "";
+			description = jobRequest->newName ? *jobRequest->newName : "";
+			string sudoName = "";
 
-			if (username == 0) {
-				throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "missing username, win-sso is disabled", PaloRequestHandler::NAME_USER, "");
-			}
+			if (!ssoLogin) {
+				// extract and check username
+				username = jobRequest->user;
 
-			size_t tabChar = username->find('\t');
-			if (tabChar != string::npos) {
-				if (tabChar != username->size() - 1) {
-					// get sudoName if it is available after special character
-					sudoName = username->substr(tabChar + 1, string::npos);
+				if (username == 0) {
+					throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "missing username, win-sso is disabled", PaloRequestHandler::NAME_USER, "");
 				}
-				*username = username->substr(0, tabChar);
 
-				Logger::debug << "User " << *username << " logging as " << sudoName << endl;
+				size_t tabChar = username->find('\t');
+				if (tabChar != string::npos) {
+					if (tabChar != username->size() - 1) {
+						// get sudoName if it is available after special character
+						sudoName = username->substr(tabChar + 1, string::npos);
+					}
+					*username = username->substr(0, tabChar);
 
-				if (sudoName.empty()) {
-					throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "no username to impersonate", PaloRequestHandler::NAME_USER, "");
+					Logger::debug << "User " << *username << " logging as " << sudoName << endl;
+
+					if (sudoName.empty()) {
+						throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "no username to impersonate", PaloRequestHandler::NAME_USER, "");
+					}
+				}
+
+				if (username->empty()) {
+					throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "empty username", PaloRequestHandler::NAME_USER, "");
+				}
+
+				// extract and check password
+				password = jobRequest->password;
+			}
+
+			if (worker != 0 && server->getLoginType() == WORKER_AUTHENTICATION) {
+				if (jobRequest->externPassword != 0) {
+					password = jobRequest->externPassword;
+				}
+			} else if (worker == 0) {
+				if (password == 0 && jobRequest->externPassword != 0) {
+					password = jobRequest->externPassword;
+					useMd5 = false;
 				}
 			}
 
-			if (username->empty()) {
-				throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "empty username", PaloRequestHandler::NAME_USER, "");
+			if (!ssoLogin) {
+				if (password == 0) {
+					throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "missing password", PaloRequestHandler::PASSWORD, "");
+				}
+
+				if (password->empty()) {
+					throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "empty password", PaloRequestHandler::PASSWORD, "");
+				}
 			}
 
-			// extract and check password
-			password = jobRequest->password;
+			// login using username and password
+			if (worker == 0) {
+				session = loginInternal(useMd5, sudoName);
+			} else {
+				try {
+					if (ssoLogin) {
+						session = loginWindowsAuthentication(winDomain, winUsername, winGroups);
+					} else if (server->getLoginType() == WORKER_INFORMATION) {
+						session = loginExternalInformation(sudoName);
+					} else if (server->getLoginType() == WORKER_AUTHENTICATION) {
+						session = loginExternalAuthentication(sudoName);
+					} else if (server->getLoginType() == WORKER_AUTHORIZATION) {
+						session = loginExternalAuthorization(sudoName);
+					} else {
+						throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "unknown login type", "login type", server->getLoginType());
+					}
+				} catch (...) {
+					if (!ssoLogin && server->getLoginType() != WORKER_INFORMATION && (*username == SystemDatabase::NAME_ADMIN || *username == SystemDatabase::NAME_IPS)) {
+						Logger::debug << "external authentication declined for " << *username << ", logging internally" << endl;
+						session = loginInternal(useMd5, sudoName);
+					} else {
+						throw;
+					}
+				}
+			}
+
+			if (!optimistic) {
+				context->setPesimistic();
+			}
+
+			ret = server->commit();
+
+			if (ret) {
+				break;
+			}
+			clear();
+
 		}
-
-		if (worker != 0 && server->getLoginType() == WORKER_AUTHENTICATION) {
-			if (jobRequest->externPassword != 0) {
-				password = jobRequest->externPassword;
-			}
-		} else if (worker == 0) {
-			if (password == 0 && jobRequest->externPassword != 0) {
-				password = jobRequest->externPassword;
-				useMd5 = false;
-			}
-		}
-
-		if (!ssoLogin) {
-			if (password == 0) {
-				throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "missing password", PaloRequestHandler::PASSWORD, "");
-			}
-
-			if (password->empty()) {
-				throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "empty password", PaloRequestHandler::PASSWORD, "");
-			}
-		}
-
-		// login using username and password
-		if (worker == 0) {
-			session = loginInternal(useMd5, sudoName);
-		} else {
-			try {
-				if (ssoLogin) {
-					session = loginWindowsAuthentication(winDomain, winUsername, winGroups);
-				} else if (server->getLoginType() == WORKER_INFORMATION) {
-					session = loginExternalInformation(sudoName);
-				} else if (server->getLoginType() == WORKER_AUTHENTICATION) {
-					session = loginExternalAuthentication(sudoName);
-				} else if (server->getLoginType() == WORKER_AUTHORIZATION) {
-					session = loginExternalAuthorization(sudoName);
-				} else {
-					throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "unknown login type", "login type", server->getLoginType());
-				}
-			} catch (...) {
-				if (!ssoLogin && server->getLoginType() != WORKER_INFORMATION && (*username == SystemDatabase::NAME_ADMIN || *username == SystemDatabase::NAME_IPS)) {
-					Logger::debug << "external authentication declined for " << *username << ", logging internally" << endl;
-					session = loginInternal(useMd5, sudoName);
-				} else {
-					throw;
-				}
-			}
+		if (!ret) {
+			throw CommitException(ErrorException::ERROR_COMMIT_CANTCOMMIT, "ServerLoginJob failed. Internal error occured.");
 		}
 
 		generateLoginResponse(session, optional);
@@ -235,25 +256,11 @@ private:
 	PSystemDatabase checkCreateUser(bool external, string& username, vector<string>* groups, IdentifierType *createdElement = NULL) {
 		PSystemDatabase sd = server->getSystemDatabase();
 		if (!sd->userExist(username, external) || (external && (sd->groupsUpdateRequired(server, username, groups)))) {
-			bool ret = false;
-			for (int i = 0; i < Commitable::COMMIT_REPEATS; i++) {
-				server = Context::getContext()->getServerCopy();
-				PDatabaseList dbs = server->getDatabaseList(true);
-				server->setDatabaseList(dbs);
-				sd = COMMITABLE_CAST(SystemDatabase, server->lookupDatabase(sd->getId(), true));
-				dbs->set(sd);
-				if (external) {
-					sd->createExternalUser(COMMITABLE_CAST(Server, server), username, groups, createdElement);
-				} else {
-					sd->createUser(username);
-				}
-				ret = server->commit();
-				if (ret) {
-					break;
-				}
-			}
-			if (!ret) {
-				throw CommitException(ErrorException::ERROR_COMMIT_CANTCOMMIT, "Can't create new user.");
+			sd = server->getSystemDatabaseCopy();
+			if (external) {
+				sd->createExternalUser(COMMITABLE_CAST(Server, server), username, groups, createdElement);
+			} else {
+				sd->createUser(username);
 			}
 		}
 		return sd;
@@ -418,9 +425,7 @@ private:
 		boost::shared_ptr<PaloSession> session = PaloSession::createSession(user, false, server->getDefaultTtl(), server->useShortSid(), jobRequest->type == 1, getIoTask() ? getIoTask()->getPeerName() : string(), &machine, &required, &optional, description, jobRequest->externalIdentifier ? (*jobRequest->externalIdentifier) : "");
 
 		if (createdElement != NO_IDENTIFIER) {
-			server = Context::getContext()->getServerCopy();
 			sd->getUserDimension()->addElementEvent(server, sd, createdElement, session->getSid());
-			server->commit();
 		}
 
 		return session;
@@ -473,9 +478,7 @@ private:
 		boost::shared_ptr<PaloSession> session = PaloSession::createSession(user, false, server->getDefaultTtl(), server->useShortSid(), jobRequest->type == 1, getIoTask() ? getIoTask()->getPeerName() : string(), &machine, &required, &optional, description, jobRequest->externalIdentifier ? (*jobRequest->externalIdentifier) : "");
 
 		if (createdElement != NO_IDENTIFIER) {
-			server = Context::getContext()->getServerCopy();
 			sd->getUserDimension()->addElementEvent(server, sd, createdElement, session->getSid());
-			server->commit();
 		}
 
 		return session;

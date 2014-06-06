@@ -1758,12 +1758,12 @@ void Cube::copyCellCreateMaps(PDatabase db, Element *sourceElem, Element *target
 					return; // this pair already found
 				}
 			}
+		} else {
+			target2SourceMap.insert(make_pair(targetId, sourceId));
 		}
 		sourceSet.insert(sourceId);
 		if (setMultimap) {
 			setMultimap->insert(SetMultimap::value_type(sourceId, targetId));
-//		} else {
-//			targetTransformId = targetId;
 		}
 
 		if (targetElem->getElementType() == Element::CONSOLIDATED) {

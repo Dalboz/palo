@@ -104,10 +104,7 @@ public:
 				server = Context::getContext()->getServerCopy();
 				// TODO: GPU stuff
 				if (del) {
-					PDatabaseList dbs = server->getDatabaseList(true);
-					server->setDatabaseList(dbs);
-					PSystemDatabase sysdb = COMMITABLE_CAST(SystemDatabase, server->getSystemDatabase()->copy());
-					dbs->set(sysdb);
+					PSystemDatabase sysdb = server->getSystemDatabaseCopy();
 					PCubeList cubes = sysdb->getCubeList(true);
 					sysdb->setCubeList(cubes);
 					PCube userPropsCube = COMMITABLE_CAST(Cube, sysdb->getUserUserPropertiesCube()->copy());

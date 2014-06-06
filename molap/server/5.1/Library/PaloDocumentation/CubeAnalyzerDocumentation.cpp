@@ -66,9 +66,11 @@ void CubeAnalyzerDocumentation::analyze(PPlanNode plan, int level)
 			if (rpn->useMarkers()) {
 				markedRuleCells += areaSize;
 				markedRuleAreas++;
+				markedRulesIds.insert(rpn->getRuleId());
 			} else {
 				legacyRuleCells += areaSize;
 				legacyRuleAreas++;
+				legacyRulesIds.insert(rpn->getRuleId());
 			}
 		} else if (plan->getType() == COMPLETE) {
 			const CompletePlanNode *cpn = dynamic_cast<const CompletePlanNode *>(plan.get());
@@ -77,9 +79,22 @@ void CubeAnalyzerDocumentation::analyze(PPlanNode plan, int level)
 				ruleCells += areaSize;
 				newRuleCells += areaSize;
 				newRuleAreas++;
+				newRulesIds.insert(cpn->getRuleId());
 			}
 		}
 	}
+}
+
+static string IDsToString(const set<IdentifierType> rulesIds)
+{
+	stringstream ss;
+	for (set<IdentifierType>::const_iterator rit = rulesIds.begin(); rit != rulesIds.end(); ++rit) {
+		if (rit != rulesIds.begin()) {
+			ss << ",";
+		}
+		ss << *rit;
+	}
+	return ss.str();
 }
 
 CubeAnalyzerDocumentation::CubeAnalyzerDocumentation(PDatabase database, PCube cube, PPlanNode plan, const string& message) :
@@ -108,43 +123,51 @@ CubeAnalyzerDocumentation::CubeAnalyzerDocumentation(PDatabase database, PCube c
 	vector<string> sizesPerc;
 	vector<string> sizesCells;
 	vector<string> sizesAreas;
+	vector<string> ruleIDs;
 	vector<string> typeDescription;
 
 	if (totalCells) {
 		sizesPerc.push_back(UTF8Comparer::doubleToString(100*aggregatedCells/totalCells, 0, 2));
 		sizesCells.push_back(StringUtils::convertToString(aggregatedCells));
 		sizesAreas.push_back(StringUtils::convertToString(aggregatedAreas));
+		ruleIDs.push_back("");
 		typeDescription.push_back("Aggregated cells");
 
 		sizesPerc.push_back(UTF8Comparer::doubleToString(100*baseCells/totalCells, 0, 2));
 		sizesCells.push_back(StringUtils::convertToString(baseCells));
 		sizesAreas.push_back(StringUtils::convertToString(baseAreas));
+		ruleIDs.push_back("");
 		typeDescription.push_back("Base cells");
 
 		sizesPerc.push_back(UTF8Comparer::doubleToString(100*ruleCells/totalCells, 0, 2));
 		sizesCells.push_back(StringUtils::convertToString(ruleCells));
 		sizesAreas.push_back(StringUtils::convertToString(ruleAreas));
+		ruleIDs.push_back("");
 		typeDescription.push_back("Rule calculated cells - total");
 
 		sizesPerc.push_back(UTF8Comparer::doubleToString(100*newRuleCells/totalCells, 0, 2));
 		sizesCells.push_back(StringUtils::convertToString(newRuleCells));
 		sizesAreas.push_back(StringUtils::convertToString(newRuleAreas));
-		typeDescription.push_back("Rule calculated cells - new engine");
+		ruleIDs.push_back(IDsToString(newRulesIds));
+		typeDescription.push_back("Rule calculated cells - Data Driven Calculation");
 
 		sizesPerc.push_back(UTF8Comparer::doubleToString(100*markedRuleCells/totalCells, 0, 2));
 		sizesCells.push_back(StringUtils::convertToString(markedRuleCells));
 		sizesAreas.push_back(StringUtils::convertToString(markedRuleAreas));
-		typeDescription.push_back("Rule calculated cells - marked rules");
+		ruleIDs.push_back(IDsToString(markedRulesIds));
+		typeDescription.push_back("Rule calculated cells - Marker Driven Calculation");
 
 		sizesPerc.push_back(UTF8Comparer::doubleToString(100*legacyRuleCells/totalCells, 0, 2));
 		sizesCells.push_back(StringUtils::convertToString(legacyRuleCells));
 		sizesAreas.push_back(StringUtils::convertToString(legacyRuleAreas));
-		typeDescription.push_back("Rule calculated cells - slow rules");
+		ruleIDs.push_back(IDsToString(legacyRulesIds));
+		typeDescription.push_back("Rule calculated cells - Structure Driven Calculation - slowest");
 	}
 
 	values["@sizes_perc"] = sizesPerc;
 	values["@sizes_cells"] = sizesCells;
 	values["@sizes_area"] = sizesAreas;
+	values["@RuleIDs"] = ruleIDs;
 	values["@types"] = typeDescription;
 }
 

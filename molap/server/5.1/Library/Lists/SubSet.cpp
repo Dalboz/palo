@@ -898,6 +898,7 @@ void SubSet::apply()
 			stru.insert(stru.end(), r.begin(), r.end());
 		}
 	}
+	set<Element *> strset;
 	if (worked) {
 		shrinked = true;
 		elemsMap.clear();
@@ -905,6 +906,7 @@ void SubSet::apply()
 			elemsMap.insert(it->elem);
 			shrinkedList.push_back(it->elem);
 		}
+		strset = elemsMap;
 		stru.clear();
 		worked = false;
 	}
@@ -974,36 +976,40 @@ void SubSet::apply()
 		if (queryGlobalFlag(LEVEL_BOUNDS)) {
 			makeFinal(srt.queryFlag(SortingFilter::PATH));
 			for (vector<SubElem>::iterator itIds = finalList.begin(); itIds != finalList.end();) {
-				vector<StructuralFilterSettings>::iterator it = structural.begin();
-				for (; it != structural.end(); ++it) {
-					const unsigned int start = it->level_start;
-					const unsigned int end = it->level_end;
-					bool br = false;
-					switch (it->indent) {
-					case 2:
-						{
-							if (itIds->elem->getLevel() >= start && itIds->elem->getLevel() <= end) {
+				if (strset.find(itIds->elem) == strset.end()) {
+					vector<StructuralFilterSettings>::iterator it = structural.begin();
+					for (; it != structural.end(); ++it) {
+						const unsigned int start = it->level_start;
+						const unsigned int end = it->level_end;
+						bool br = false;
+						switch (it->indent) {
+						case 2:
+							{
+								if (itIds->elem->getLevel() >= start && itIds->elem->getLevel() <= end) {
+									br = true;
+								}
+							}
+							break;
+						case 3:
+							if (itIds->dep >= start && itIds->dep <= end) {
 								br = true;
 							}
+							break;
+						default:
+							if (itIds->ind >= start && itIds->ind <= end) {
+								br = true;
+							}
+							break;
 						}
-						break;
-					case 3:
-						if (itIds->dep >= start && itIds->dep <= end) {
-							br = true;
+						if (br) {
+							break;
 						}
-						break;
-					default:
-						if (itIds->ind >= start && itIds->ind <= end) {
-							br = true;
-						}
-						break;
 					}
-					if (br) {
-						break;
+					if (it == structural.end()) {
+						itIds = finalList.erase(itIds);
+					} else {
+						++itIds;
 					}
-				}
-				if (it == structural.end()) {
-					itIds = finalList.erase(itIds);
 				} else {
 					++itIds;
 				}

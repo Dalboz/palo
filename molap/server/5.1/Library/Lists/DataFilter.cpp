@@ -115,7 +115,7 @@ ElementsType DataFilter::apply()
 
 	bool isAggrFunc;
 	int funcType = getFuncType(isAggrFunc);
-	vector<uint32_t> numElemCount(dimCount);
+	vector<set<uint32_t> > numElemCount(dimCount);
 	bool isVirtual = false;
 	for (uint32_t i = 0; i < dimCount; ++i) {
 		CPDimension dim = database->lookupDimension((*dims)[i], false);
@@ -128,7 +128,7 @@ ElementsType DataFilter::apply()
 				Element *elem = dim->findElement(m_coords[i].at(j), 0, false);
 				if (!isVirtual && !isAggrFunc) {
 					if (elem->getElementType() == Element::NUMERIC || elem->getElementType() == Element::CONSOLIDATED) {
-						numElemCount[i]++;
+						numElemCount[i].insert(elem->getIdentifier());
 					}
 				}
 			}
@@ -208,11 +208,9 @@ ElementsType DataFilter::apply()
 
 	PArea area(new Area(m_coords));
 	PArea noPermission;
-	PArea unknown;
 	bool isNoPermission;
-	bool isUnknown;
 	vector<CPDimension> cdims;
-	PCubeArea calcArea = AreaJob::checkRights(vRights, checkPermissions, area, 0, m_source_cube, database, user, noPermission, unknown, isNoPermission, isUnknown, cdims);
+	PCubeArea calcArea = AreaJob::checkRights(vRights, checkPermissions, area, 0, m_source_cube, database, user, true, noPermission, isNoPermission, cdims);
 	if (!calcArea->getSize()) {
 		return ElementsType();
 	}
@@ -240,7 +238,7 @@ ElementsType DataFilter::apply()
 			if (i != pos) {
 				cellsPerElement *= calcArea->getDim(i)->size();
 				if (!isAggrFunc) {
-					numCellsPerElement *= numElemCount[i];
+					numCellsPerElement *= numElemCount[i].size();
 				}
 			}
 		}
@@ -285,10 +283,12 @@ ElementsType DataFilter::apply()
 
 	PCellStream cs = m_source_cube->evaluatePlan(plan, EngineBase::ANY, true);
 	set<IdentifierType> valid;
-	while (cs->next()) {
-		IdentifierType id = cs->getKey()[pos];
-		valid.insert(id);
-		m_subset_ref.setValue(id, cs->getValue());
+	if (cs) {
+		while (cs->next()) {
+			IdentifierType id = cs->getKey()[pos];
+			valid.insert(id);
+			m_subset_ref.setValue(id, cs->getValue());
+		}
 	}
 
 	ElementsType ret;

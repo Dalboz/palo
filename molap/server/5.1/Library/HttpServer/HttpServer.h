@@ -41,6 +41,8 @@ class HttpRequestHandler;
 class HttpResponse;
 class HttpServerTask;
 class JobAnalyser;
+class ErrorException;
+class HttpJobRequest;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// @brief http server
@@ -110,6 +112,7 @@ public:
 	////////////////////////////////////////////////////////////////////////////////
 
 	void handleRequest(HttpServerTask*, HttpRequest*);
+	HttpJobRequest *handleException(const ErrorException& e, HttpRequest* request);
 
 public:
 

@@ -255,9 +255,9 @@ void AggregationProcessorMT::aggregate()
 	// log entry
 	if (resultSize > 1000 && (Logger::isDebug() || Logger::isTrace())) {
 		Logger::debug << "Aggregated area of " << resultSize << " cells. " << storage->size() << " aggregations exists." << endl;
+	} else if (Logger::isDebug() || Logger::isTrace()) {
+		Logger::trace << "Aggregated area of " << resultSize << " cells. " << endl;
 	}
-	else if (Logger::isDebug() || Logger::isTrace())
-		Logger::trace << "Aggregated area of " << resultSize << " cells. ";
 
 	storageReader = dynamic_cast<ICellMapStream *>(storage.get())->getValues();
 }

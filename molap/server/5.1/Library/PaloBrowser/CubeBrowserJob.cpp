@@ -182,7 +182,7 @@ void CubeBrowserJob::compute()
 
 	if (numResult) {
 		vector<User::RoleDbCubeRight> vRights;
-		PCubeArea calcArea = checkRights(vRights, false, cubeArea, 0, cube, database, user, noPermission, unknown, isNoPermission, isUnknown, this->dims);
+		PCubeArea calcArea = checkRights(vRights, false, cubeArea, 0, cube, database, user, true, noPermission, isNoPermission, this->dims);
 		PCellStream cs;
 		if (calcArea->getSize()) {
 			cs = cube->calculateArea(calcArea, CubeArea::ALL, ALL_RULES, !jobRequest->skipEmpty, UNLIMITED_SORTED_PLAN);

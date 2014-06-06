@@ -102,7 +102,7 @@ void AreaJob::appendValue(const IdentifiersType &key, const CellValue &value, co
 	sb->appendEol();
 }
 
-double AreaJob::fillEmptyDim(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, vector<IdentifiersType> &area, PCube &cube, PDatabase &database, PUser &user, vector<uint32_t> *numElemCount, size_t pos)
+double AreaJob::fillEmptyDim(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, vector<IdentifiersType> &area, PCube &cube, PDatabase &database, PUser &user, vector<set<uint32_t> > *numElemCount, size_t pos)
 {
 	const IdentifiersType *dimensions = cube->getDimensions();
 	for (size_t i = 0; i < area.size(); i++) {
@@ -119,7 +119,7 @@ double AreaJob::fillEmptyDim(vector<User::RoleDbCubeRight> &vRights, bool checkP
 						area.at(i).push_back(elem->getIdentifier());
 						if (numElemCount && i != pos) {
 							if (elem->getElementType() == Element::NUMERIC || elem->getElementType() == Element::CONSOLIDATED) {
-								numElemCount->at(i)++;
+								numElemCount->at(i).insert(elem->getIdentifier());
 							}
 						}
 					}
@@ -138,14 +138,12 @@ double AreaJob::fillEmptyDim(vector<User::RoleDbCubeRight> &vRights, bool checkP
 	return size;
 }
 
-PCubeArea AreaJob::checkRights(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, CPArea area, bool* hasStringElem, PCube &cube, PDatabase &database, PUser &user, PArea &noPermission, PArea &unknown, bool &isNoPermission, bool &isUnknown, vector<CPDimension> &dims)
+PCubeArea AreaJob::checkRights(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, CPArea area, bool* hasStringElem, PCube &cube, PDatabase &database, PUser &user, bool reduceCalcArea, PArea &noPermission, bool &isNoPermission, vector<CPDimension> &dims)
 {
 	const IdentifiersType *dimensions = cube->getDimensions();
 	size_t dimCount = dimensions->size();
 	noPermission.reset(new Area(dimCount));
-	unknown.reset(new Area(dimCount));
 	isNoPermission = false;
-	isUnknown = false;
 
 	if (hasStringElem) {
 		*hasStringElem = false;
@@ -159,22 +157,16 @@ PCubeArea AreaJob::checkRights(vector<User::RoleDbCubeRight> &vRights, bool chec
 		dims.push_back(dim);
 
 		PSet np(new Set);
-		PSet unk(new Set);
 
 		if (calcArea->elemCount(i) && dim->getDimensionType() != Dimension::VIRTUAL) {
 			bool changed = false;
 			for (Set::Iterator it = s->begin(); it != s->end();) {
 				Element *elem = dim->lookupElement(*it, false);
 				if (elem) {
-					if (!checkElement(dim, elem, vRights, checkPermissions, database, user)) {
-						if (database->getHideElements()) {
-							unk->insert(*it);
-							isUnknown = true;
-						} else {
-							np->insert(*it);
-							isNoPermission = true;
-						}
-						it = s->erase(it);
+					if (reduceCalcArea && !checkElement(dim, elem, vRights, checkPermissions, database, user)) {
+						np->insert(*it);
+						isNoPermission = true;
+						it = s->erase(it); // elements without permission are removed from calcArea to make the calculation faster
 						changed = true;
 					} else {
 						++it;
@@ -185,10 +177,7 @@ PCubeArea AreaJob::checkRights(vector<User::RoleDbCubeRight> &vRights, bool chec
 						}
 					}
 				} else {
-					unk->insert(*it);
-					isUnknown = true;
-					it = s->erase(it);
-					changed = true;
+					throw ErrorException(ErrorException::ERROR_INTERNAL, "invalid element in AreaJob::checkRights");
 				}
 			}
 			if (changed) {
@@ -202,8 +191,9 @@ PCubeArea AreaJob::checkRights(vector<User::RoleDbCubeRight> &vRights, bool chec
 			}
 		}
 
-		noPermission->insert((IdentifierType)i, np);
-		unknown->insert((IdentifierType)i, unk);
+		if (reduceCalcArea) {
+			noPermission->insert((IdentifierType)i, np);
+		}
 	}
 	return calcArea;
 }
@@ -217,83 +207,33 @@ bool AreaJob::loop(CPArea area, PCubeArea calcArea, PCellStream cs, uint64_t *ma
 
 	IdentifiersType newKey;
 	uint64_t validCount = freeCount;
+
+	User::RightSetting rs(User::checkCellDataRightCube(database, cube));
+	bool getCellRight = jobRequest->properties && User::checkUser(user);
+	bool isReadableArea = getCellRight ? false : isReadable(calcArea, rs);
+
 	double areaSize = calcArea->getSize();
 	if (areaSize) {
-		User::RightSetting rs(User::checkCellDataRightCube(database, cube));
-
-		bool getCellRight = jobRequest->properties && User::checkUser(user);
-		bool isReadableArea = getCellRight ? false : isReadable(calcArea, rs);
-
 		while ((ret = cs->next())) {
 			newKey = cs->getKey();
-			if (emptyValues) {
-				generateEmptyValues(it, end, &newKey, freeCount);
-			} else {
-				if (isUnknown) {
-					generateErrors(it, end, &newKey, freeCount, unknown, ErrorException::ERROR_ELEMENT_NOT_FOUND);
-				}
-				if (isNoPermission) {
-					generateErrors(it, end, &newKey, freeCount, noPermission, ErrorException::ERROR_NOT_AUTHORIZED);
-				}
-			}
-			if (!freeCount) {
-				break;
-			}
-			freeCount--;
 
-			RightsType r = RIGHT_DELETE;
-			bool isReadableCell;
+			generateMissingValues(it, end, &newKey, props, emptyValues, getCellRight, vRights, isReadableArea, rs, freeCount);
+			generateValue(newKey, cs->getValue(), props, getCellRight, vRights, isReadableArea, rs, freeCount);
 
-			if (getCellRight) {
-				r = user->getCellRight(database, cube, newKey, vRights);
-				isReadableCell = r >= RIGHT_READ;
-			} else {
-				if (isReadableArea) {
-					isReadableCell = true;
-				} else {
-					PCubeArea cp(new CubeArea(database, cube, newKey));
-					isReadableCell = isReadable(cp, rs);
-				}
-			}
-			if (isReadableCell) {
-				vector<CellValue> prop_vals;
-				if (jobRequest->properties) {
-					fillProps(prop_vals, newKey, props, *jobRequest->properties, r);
-				}
-				const CellValue &cellValue = cs->getValue();
-				if (checkCondition(cellValue)) {
-					appendValue(newKey, cellValue, prop_vals);
-				} else {
-					freeCount++;
-				}
-			} else {
-				vector<CellValue> prop_vals;
-				if (jobRequest->properties) {
-					prop_vals.resize(jobRequest->properties->size());
-				}
-				appendValue(newKey, CellValue(ErrorException::ERROR_NOT_AUTHORIZED), prop_vals);
-			}
-			if (!validCount--) {
-				break;
-			}
-
-			++it;
 			if (areaSize == 1.0) {
+				++it;
 				ret = false;
 				break;
 			}
+			if (!freeCount || !validCount) {
+				break;
+			}
+			validCount--;
+			++it;
 		}
 	}
-	if (emptyValues) {
-		generateEmptyValues(it, end, 0, freeCount);
-	} else {
-		if (isUnknown) {
-			generateErrors(it, end, 0, freeCount, unknown, ErrorException::ERROR_ELEMENT_NOT_FOUND);
-		}
-		if (isNoPermission) {
-			generateErrors(it, end, 0, freeCount, noPermission, ErrorException::ERROR_NOT_AUTHORIZED);
-		}
-	}
+	generateMissingValues(it, end, 0, props, emptyValues, getCellRight, vRights, isReadableArea, rs, freeCount);
+
 	if (lastKey) {
 		bool copyIter;
 		IdentifiersType iterKey = *it;
@@ -312,67 +252,95 @@ bool AreaJob::loop(CPArea area, PCubeArea calcArea, PCellStream cs, uint64_t *ma
 	return ret;
 }
 
-void AreaJob::generateEmptyValues(Area::PathIterator &curr, const Area::PathIterator &end, const IdentifiersType *newKey, uint64_t &freeCount)
+void AreaJob::generateMissingValues(Area::PathIterator &curr, const Area::PathIterator &end, const IdentifiersType *newKey, PCellStream props, bool emptyValues, bool getCellRight, vector<User::RoleDbCubeRight> &vRights, bool isReadableArea, User::RightSetting rs, uint64_t &freeCount)
 {
-	if (newKey) {
-		while (freeCount && curr != *newKey) {
-			generateEmptyValue(curr, freeCount);
-		}
-	} else {
-		while (freeCount && curr != end) {
-			generateEmptyValue(curr, freeCount);
+	if (freeCount && (isNoPermission || emptyValues)) {
+		if (newKey) {
+			while (freeCount && curr != *newKey) {
+				generateMissingValues_intern(curr, props, emptyValues, getCellRight, vRights, isReadableArea, rs, freeCount);
+			}
+		} else {
+			while (freeCount && curr != end) {
+				generateMissingValues_intern(curr, props, emptyValues, getCellRight, vRights, isReadableArea, rs, freeCount);
+			}
 		}
 	}
 }
 
-void AreaJob::generateEmptyValue(Area::PathIterator &curr, uint64_t &freeCount)
+void AreaJob::generateMissingValues_intern(Area::PathIterator &curr, PCellStream props, bool emptyValues, bool getCellRight, vector<User::RoleDbCubeRight> &vRights, bool isReadableArea, User::RightSetting rs, uint64_t &freeCount)
 {
-	if (!freeCount) {
-		return;
+	bool added = false;
+	if (isNoPermission) {
+		added = generateError(curr, freeCount, noPermission, database->getHideElements() ? ErrorException::ERROR_ELEMENT_NOT_FOUND : ErrorException::ERROR_NOT_AUTHORIZED);
 	}
-	vector<CellValue> prop_vals;
-	if (jobRequest->properties) {
-		prop_vals.resize(jobRequest->properties->size());
-	}
-	appendValue(*curr, CellValue::NullNumeric, prop_vals);
-	if (freeCount != UNLIMITED_COUNT) {
-		freeCount--;
+	if (emptyValues && !added) {
+		generateValue(*curr, CellValue::NullNumeric, props, getCellRight, vRights, isReadableArea, rs, freeCount);
 	}
 	++curr;
 }
 
-void AreaJob::generateErrors(Area::PathIterator &curr, const Area::PathIterator &end, const IdentifiersType *newKey, uint64_t &freeCount, PArea &restriction, ErrorException::ErrorType error)
+void AreaJob::generateValue(const IdentifiersType &key, const CellValue value, PCellStream props, bool getCellRight, vector<User::RoleDbCubeRight> &vRights, bool isReadableArea, User::RightSetting rs, uint64_t &freeCount)
 {
-	if (newKey) {
-		while (freeCount && curr != *newKey) {
-			generateError(curr, freeCount, restriction, error);
-		}
-	} else {
-		while (freeCount && curr != end) {
-			generateError(curr, freeCount, restriction, error);
-		}
-	}
-}
+	if (freeCount) {
+		bool isReadableCell = true;
+		RightsType r = RIGHT_DELETE;
 
-void AreaJob::generateError(Area::PathIterator &curr, uint64_t &freeCount, PArea &restriction, ErrorException::ErrorType error)
-{
-	if (!freeCount) {
-		return;
-	}
-	for (size_t i = 0; i < restriction->dimCount(); i++) {
-		if (restriction->find(i, (*curr)[i]) != restriction->elemEnd(i)) {
-			vector<CellValue> prop_vals;
+		if (getCellRight) {
+			r = user->getCellRight(database, cube, key, vRights);
+			isReadableCell = r >= RIGHT_READ;
+		} else {
+			if (isReadableArea) {
+				isReadableCell = true;
+			} else {
+				PCubeArea cp(new CubeArea(database, cube, key));
+				isReadableCell = isReadable(cp, rs);
+			}
+		}
+
+		bool generated = false;
+		vector<CellValue> prop_vals;
+		if (isReadableCell) {
+			if (jobRequest->properties) {
+				fillProps(prop_vals, key, props, *jobRequest->properties, r);
+			}
+			if (checkCondition(value)) {
+				appendValue(key, value, prop_vals);
+				generated = true;
+			}
+		} else {
 			if (jobRequest->properties) {
 				prop_vals.resize(jobRequest->properties->size());
 			}
-			appendValue(*curr, CellValue(error), prop_vals);
-			if (freeCount != UNLIMITED_COUNT) {
-				freeCount--;
-			}
-			break;
+			appendValue(key, CellValue(database->getHideElements() ? ErrorException::ERROR_ELEMENT_NOT_FOUND : ErrorException::ERROR_NOT_AUTHORIZED), prop_vals);
+			generated = true;
+		}
+
+		if (generated && freeCount != UNLIMITED_COUNT) {
+			freeCount--;
 		}
 	}
-	++curr;
+}
+
+bool AreaJob::generateError(Area::PathIterator &curr, uint64_t &freeCount, PArea &restriction, ErrorException::ErrorType error)
+{
+	bool generated = false;
+	if (freeCount) {
+		for (size_t i = 0; i < restriction->dimCount(); i++) {
+			if (restriction->find(i, (*curr)[i]) != restriction->elemEnd(i)) {
+				vector<CellValue> prop_vals;
+				if (jobRequest->properties) {
+					prop_vals.resize(jobRequest->properties->size());
+				}
+				appendValue(*curr, CellValue(error), prop_vals);
+				generated = true;
+				if (freeCount != UNLIMITED_COUNT) {
+					freeCount--;
+				}
+				break;
+			}
+		}
+	}
+	return generated;
 }
 
 PCellStream AreaJob::getCellPropsStream(CPDatabase db, CPCube cube, CPCubeArea area, const IdentifiersType &properties)

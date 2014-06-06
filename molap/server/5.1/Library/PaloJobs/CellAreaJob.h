@@ -149,7 +149,7 @@ public:
 		initResponse(*jobRequest->area);
 		PArea area(new Area(*jobRequest->area));
 		if (area->getSize()) {
-			PCubeArea calcArea = checkRights(vRights, checkPermissions, area, isSum ? 0 : &strElem, cube, database, user, noPermission, unknown, isNoPermission, isUnknown, this->dims);
+			PCubeArea calcArea = checkRights(vRights, checkPermissions, area, isSum ? 0 : &strElem, cube, database, user, true, noPermission, isNoPermission, this->dims);
 			if (!isSum && strElem) {
 				throw ParameterException(ErrorException::ERROR_INVALID_ELEMENT_TYPE, "cannot calculate aggregation on string area", "element type", Element::STRING);
 			}
@@ -177,8 +177,7 @@ public:
 					props = getCellPropsStream(database, cube, calcArea, *jobRequest->properties);
 				}
 			}
-			uint64_t maxCC = max_cell_count;
-			loop(area, calcArea, cs, &maxCC, props, vRights, 0, true); //calls appendValue
+			loop(area, calcArea, cs, NULL, props, vRights, 0, true); //calls appendValue
 
 			generateResponse();
 		}

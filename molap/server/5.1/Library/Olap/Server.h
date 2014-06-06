@@ -245,6 +245,14 @@ public:
 		return systemDatabase;
 	}
 
+	PSystemDatabase getSystemDatabaseCopy() {
+		checkCheckedOut();
+		dbs = getDatabaseList(true);
+		systemDatabase = COMMITABLE_CAST(SystemDatabase, lookupDatabase(systemDatabase->getId(), true));
+		dbs->set(systemDatabase);
+		return systemDatabase;
+	}
+
 	IdentifierType sizeDatabases() const {
 		return dbs->size();
 	}

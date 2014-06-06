@@ -66,6 +66,9 @@ private:
 	int newRuleAreas;
 	int markedRuleAreas;
 	int legacyRuleAreas;
+	set<IdentifierType> newRulesIds;
+	set<IdentifierType> markedRulesIds;
+	set<IdentifierType> legacyRulesIds;
 };
 
 }

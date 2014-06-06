@@ -3,7 +3,7 @@
 @short_description Saves a database to disk. 
 
 @long_description 
-To save cube data use the request "/cube/save".
+To save cube data use the request "/cube/save" (not necessary for complete backup mode).
 
 
 
