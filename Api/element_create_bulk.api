@@ -55,7 +55,7 @@ session identifier.
 @example database=3&dimension=11&name_elements=a,b,c,d,e,f&type=1
 @example_description Create six new numeric elements.
 
-@example database=3&dimension=11&name_elements=abc,def&type=4&children=10,11,12:13,14,15,r&weights=1,1,2:1,2,1
+@example database=3&dimension=11&name_elements=abc,def&type=4&children=10,11,12:13,14,15&weights=1,1,2:1,2,1
 @example_description Create two new consolidated elements with names "abc" and "def". 
 Element "abc" will have children (10, 11, 12) with weights (1, 1, 2).
 Element "def" will have children (13, 14, 15) with weights (1, 2, 1).

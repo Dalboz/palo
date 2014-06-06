@@ -98,7 +98,7 @@ public:
 		checkProperties();
 
 		set<size_t> invalidPaths;
-		findCellPaths(&invalidPaths);
+		findCellPaths(&invalidPaths, 0);
 
 		vector<User::RoleDbCubeRight> vRights;
 		if (User::checkUser(user)) {
@@ -110,7 +110,7 @@ public:
 		buildSubCubes(subCubes.get(), invalidPaths);
 
 		for (SubCubeList::iterator it = subCubes->begin(); it != subCubes->end(); ++it) {
-			PCubeArea calcArea = checkRights(vRights, checkPermissions, it->second, 0, cube, database, user, noPermission, unknown, isNoPermission, isUnknown, this->dims);
+			PCubeArea calcArea = checkRights(vRights, checkPermissions, it->second, 0, cube, database, user, true, noPermission, isNoPermission, this->dims);
 
 			PCellStream cs;
 			PCellStream props;

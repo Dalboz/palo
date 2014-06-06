@@ -568,6 +568,10 @@ void AggregationMap::buildBaseToParentMap_AllToOne(CPSet elems, map<IdentifierTy
 	targetIds.push_back(*sit);
 	vector<double> targetWeights;
 
+	sit = elems->end();
+	--sit;
+	minBaseId = min(minBaseId, startId);
+	maxBaseId = max(maxBaseId, *sit);
 	if (factors && !factors->empty()) {
 		IdentifierType factorId = NO_IDENTIFIER;
 		for (map<IdentifierType, size_t>::const_iterator fit = factors->begin(); fit != factors->end(); ++fit) {
@@ -594,11 +598,7 @@ void AggregationMap::buildBaseToParentMap_AllToOne(CPSet elems, map<IdentifierTy
 			targetWeights.clear();
 		}
 	}
-	sit = elems->end();
-	--sit;
-	nextStartId = *sit + 1;
-	minBaseId = min(minBaseId, elems->rangeBegin().low());
-	maxBaseId = max(maxBaseId, nextStartId-1);
+	nextStartId = maxBaseId + 1;
 	storeDistributionSequence(startId, nextStartId, targetIds, targetWeights);
 }
 

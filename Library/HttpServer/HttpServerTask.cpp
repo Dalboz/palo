@@ -277,69 +277,74 @@ bool HttpServerTask::processRead()
 
 	bool handleRequest = false;
 
-	if (!readRequestBody) {
-		const char * ptr = readBuffer.c_str() + readPosition;
-		const char * end = readBuffer.end() - 3;
+	try {
+		if (!readRequestBody) {
+			const char * ptr = readBuffer.c_str() + readPosition;
+			const char * end = readBuffer.end() - 3;
 
-		for (; ptr < end; ptr++) {
-			if (ptr[0] == '\r' && ptr[1] == '\n' && ptr[2] == '\r' && ptr[3] == '\n') {
-				break;
-			}
-		}
-
-		if (ptr < end) {
-			readPosition = ptr - readBuffer.c_str() + 4;
-			string url = extractRequestPath();
-			httpRequest = server->createHttpRequest(url);
-			httpRequest->extractHeader(readBuffer.str(), readBuffer.str() + readPosition);
-			bodyPosition = readPosition;
-
-			switch (httpRequest->getRequestType()) {
-			case HttpRequest::HTTP_REQUEST_GET:
-				handleRequest = true;
-				break;
-
-			case HttpRequest::HTTP_REQUEST_POST:
-				bodyLength = httpRequest->getContentLength();
-
-				if (bodyLength > 0) {
-					readRequestBody = true;
-				} else {
-					handleRequest = true;
+			for (; ptr < end; ptr++) {
+				if (ptr[0] == '\r' && ptr[1] == '\n' && ptr[2] == '\r' && ptr[3] == '\n') {
+					break;
 				}
-				break;
-
-			default:
-				Logger::warning << "got corrupted HTTP request" << endl;
-				//handleHangup();
-				//handleRequest = true;
-				return false;
 			}
 
-		} else {
-			if (readBuffer.c_str() < end) {
-				readPosition = end - readBuffer.c_str();
+			if (ptr < end) {
+				readPosition = ptr - readBuffer.c_str() + 4;
+				string url = extractRequestPath();
+				httpRequest = server->createHttpRequest(url);
+				httpRequest->extractHeader(readBuffer.str(), readBuffer.str() + readPosition);
+				bodyPosition = readPosition;
+
+				switch (httpRequest->getRequestType()) {
+				case HttpRequest::HTTP_REQUEST_GET:
+					handleRequest = true;
+					break;
+
+				case HttpRequest::HTTP_REQUEST_POST:
+					bodyLength = httpRequest->getContentLength();
+
+					if (bodyLength > 0) {
+						readRequestBody = true;
+					} else {
+						handleRequest = true;
+					}
+					break;
+
+				default:
+					Logger::warning << "got corrupted HTTP request" << endl;
+					//handleHangup();
+					//handleRequest = true;
+					return false;
+				}
+
+			} else {
+				if (readBuffer.c_str() < end) {
+					readPosition = end - readBuffer.c_str();
+				}
 			}
 		}
-	}
 
-	// readRequestBody might have changed, so cannot use else
-	if (readRequestBody) {
-		if (readBuffer.length() - bodyPosition < bodyLength) {
-			return true;
+		// readRequestBody might have changed, so cannot use else
+		if (readRequestBody) {
+			if (readBuffer.length() - bodyPosition < bodyLength) {
+				return true;
+			}
+
+			// read "bodyLength" from read buffer and add this body to "httpRequest"
+			httpRequest->extractBody(readBuffer.str() + bodyPosition, readBuffer.str() + bodyPosition + bodyLength);
+
+			// handle request
+			readRequestBody = false;
+			handleRequest = true;
 		}
 
-		// read "bodyLength" from read buffer and add this body to "httpRequest"
-		httpRequest->extractBody(readBuffer.str() + bodyPosition, readBuffer.str() + bodyPosition + bodyLength);
-
-		// handle request
-		readRequestBody = false;
-		handleRequest = true;
-	}
-
-	if (handleRequest) {
-		httpRequestPending = true;
-		server->handleRequest(this, httpRequest);
+		if (handleRequest) {
+			httpRequestPending = true;
+			server->handleRequest(this, httpRequest);
+		}
+	} catch (const ErrorException& e) {
+		httpJobRequest = server->handleException(e, httpRequest);
+		handleDone();
 	}
 
 	return true;

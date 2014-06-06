@@ -315,6 +315,9 @@ PProcessorBase EngineBase::createProcessor(CPPlanNode node, bool sortedOutput, b
 	}
 	case TRANSFORMATION: {
 		const TransformationPlanNode *transformationPlanNode = dynamic_cast<const TransformationPlanNode *>(node.get());
+		if (transformationPlanNode->getSourceCubeId().first != NO_IDENTIFIER) {
+			Context::getContext()->setCacheDependence(transformationPlanNode->getSourceCubeId());
+		}
 		if (transformationPlanNode->getSetMultiMaps()) {
 			return PProcessorBase(new TransformationMapProcessor(thisEngine, node));
 		} else {
@@ -540,7 +543,8 @@ string QuantificationPlanNode::getXMLContent() const
 }
 
 TransformationPlanNode::TransformationPlanNode(CPArea area, PPlanNode &child, const SetMultimaps &setMultiMaps, double factor, const vector<uint32_t> &dimensionMapping) :
-	PlanNode(TRANSFORMATION, area, vector<PPlanNode>(1, child), 0, CPCube()), setMultiMaps(setMultiMaps), pSetMultiMaps(0), factor(factor), dimensionMapping(dimensionMapping)
+	PlanNode(TRANSFORMATION, area, vector<PPlanNode>(1, child), 0, CPCube()), setMultiMaps(setMultiMaps),
+	pSetMultiMaps(0), factor(factor), dimensionMapping(dimensionMapping), sourceCubeId(NO_IDENTIFIER, NO_IDENTIFIER)
 {
 	if (setMultiMaps.size()) {
 		for (SetMultimaps::const_iterator smm = setMultiMaps.begin(); smm != setMultiMaps.end(); ++smm) {

@@ -191,9 +191,7 @@ void Server::updateDatabaseDim(bool useDimWorker)
 
 void Server::updateDatabaseDim(SystemDatabase::UpdateType type, const string &dbName, const string &dbOldName, PUser user, bool useDimWorker)
 {
-	dbs = getDatabaseList(true);
-	systemDatabase = COMMITABLE_CAST(SystemDatabase, lookupDatabase(systemDatabase->getId(), true));
-	dbs->set(systemDatabase);
+	getSystemDatabaseCopy();
 	PServer server = COMMITABLE_CAST(Server, shared_from_this());
 	systemDatabase->updateDatabaseDim(server, type, dbName, dbOldName, useDimWorker);
 	if (type == SystemDatabase::ADD && user) {
@@ -656,36 +654,23 @@ string Server::getUserLicense(IdentifierType user)
 
 void Server::setUserLicense(IdentifierType user, string lickey)
 {
-	bool ret = false;
-	for (int i = 0; i < Commitable::COMMIT_REPEATS; i++) {
-		PServer server = Context::getContext()->getServerCopy();
-		PDatabaseList dbs = server->getDatabaseList(true);
-		server->setDatabaseList(dbs);
-		PSystemDatabase db = COMMITABLE_CAST(SystemDatabase, server->getSystemDatabase()->copy());
-		dbs->set(db);
-		PCubeList cubes = db->getCubeList(true);
-		db->setCubeList(cubes);
-		PCube cube = db->findCube(db->getUserUserPropertiesCube()->getId(), PUser(), true, true);
-		cubes->set(cube);
-		PCubeArea path(new CubeArea(db, cube, 2));
-		PSet s(new Set);
-		s->insert(user);
-		path->insert(0, s);
-		s.reset(new Set);
-		s->insert(db->findDimensionByName(SystemDatabase::NAME_USER_PROPERTIES_DIMENSION, PUser(), false)->findElementByName(SystemDatabase::LICENSES, 0, false)->getIdentifier());
-		path->insert(1, s);
+	PServer server = Context::getContext()->getServer();
+	PSystemDatabase db = server->getSystemDatabaseCopy();
+	PCubeList cubes = db->getCubeList(true);
+	db->setCubeList(cubes);
+	PCube cube = db->findCube(db->getUserUserPropertiesCube()->getId(), PUser(), true, true);
+	cubes->set(cube);
+	PCubeArea path(new CubeArea(db, cube, 2));
+	PSet s(new Set);
+	s->insert(user);
+	path->insert(0, s);
+	s.reset(new Set);
+	s->insert(db->findDimensionByName(SystemDatabase::NAME_USER_PROPERTIES_DIMENSION, PUser(), false)->findElementByName(SystemDatabase::LICENSES, 0, false)->getIdentifier());
+	path->insert(1, s);
 
-		set<PCube> changedCubes;
-		cube->setCellValue(server, db, path, lickey, PLockedCells(), PUser(), boost::shared_ptr<PaloSession>(), false, false, DEFAULT, true, 0, changedCubes, true, CubeArea::BASE_STRING);
-		cube->commitChanges(false, PUser(), changedCubes, false);
-		ret = server->commit();
-		if (ret) {
-			break;
-		}
-	}
-	if (!ret) {
-		throw CommitException(ErrorException::ERROR_COMMIT_CANTCOMMIT, "Can't attach license key to user.");
-	}
+	set<PCube> changedCubes;
+	cube->setCellValue(server, db, path, lickey, PLockedCells(), PUser(), boost::shared_ptr<PaloSession>(), false, false, DEFAULT, true, 0, changedCubes, true, CubeArea::BASE_STRING);
+	cube->commitChanges(false, PUser(), changedCubes, false);
 }
 
 void Server::databaseRenamed(const string &oldName, const string &newName)
@@ -950,9 +935,7 @@ void Server::beginShutdown(PUser user)
 void Server::changePassword(PUser userChanging, IdentifierType userToChange, const string& new_password)
 {
 	if (userChanging) {
-		dbs = getDatabaseList(true);
-		systemDatabase = COMMITABLE_CAST(SystemDatabase, lookupDatabase(systemDatabase->getId(), true));
-		dbs->set(systemDatabase);
+		getSystemDatabaseCopy();
 		systemDatabase->changePassword(COMMITABLE_CAST(Server, shared_from_this()), userChanging, userToChange, new_password);
 	}
 }

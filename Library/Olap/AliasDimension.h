@@ -57,6 +57,8 @@ public:
 		status = LOADED;
 	}
 
+	virtual uint32_t getToken() const;
+
 	void loadDimension(PServer server, PDatabase db, FileReader* file) {
 		return;
 	}

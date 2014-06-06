@@ -303,7 +303,8 @@ public:
 	static string getNextElement(string& buffer, size_t& pos, const char seperator, bool quote, boost::scoped_array<char> &quoteBuffer);
 
 	static void splitString2(const char* ss, const char* se, vector<vector<string> >* elements, char separator1, char separator2, bool quote);
-	static void splitString3(const string& line, vector<string> &elements, char seperator);
+	static void splitString3(const string& line, vector<string> &elements, char seperator, bool empty);
+	static string unQuote(const std::string &s);
 };
 
 }

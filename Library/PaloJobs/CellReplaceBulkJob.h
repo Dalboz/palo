@@ -93,7 +93,7 @@ public:
 			server = context->getServerCopy();
 			findDatabase(true, true);
 			findCube(true, true);
-			findCellPaths(0);
+			findCellPaths(0, user.get());
 			findLockedPaths(0);
 			assertParameter(PaloRequestHandler::VALUES, jobRequest->values);
 

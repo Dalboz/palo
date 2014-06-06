@@ -260,14 +260,14 @@ protected:
 	/// @brief finds pathes
 	////////////////////////////////////////////////////////////////////////////////
 
-	void findCellPaths(set<size_t> *invalidPaths);
+	void findCellPaths(set<size_t> *invalidPaths, User *user);
 	void findLockedPaths(set<size_t> *invalidPaths);
 
 protected:
 
 	void checkProperties();
 
-	void findPathsIntern(vector<IdentifiersType> *sourcePaths, PPaths &targetPaths, set<size_t> *invalidPaths);
+	void findPathsIntern(vector<IdentifiersType> *sourcePaths, PPaths &targetPaths, set<size_t> *invalidPaths, User *user);
 
 	void updateLicenses();
 

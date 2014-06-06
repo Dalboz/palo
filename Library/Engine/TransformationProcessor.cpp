@@ -737,6 +737,7 @@ const GpuBinPath &TransformationProcessor::getBinKey() const
 void TransformationProcessor::reset()
 {
 	child->reset();
+	nextResult = false;
 }
 
 TransformationMapProcessor::TransformationMapProcessor(PEngineBase engine, CPPlanNode node) : TransformationProcessor(engine, node), multiMaps(0), endOfMultiMapping(true), node(node)

@@ -957,75 +957,74 @@ void PaloHttpRequest::fillVectorVectorDouble(vector<vector<double> >*& doubles, 
 void PaloHttpRequest::fillViewSubsets(map<string, ViewSubset>*& subsets, char* valueStart, char* valueEnd)
 {
 	subsets = new map<string, ViewSubset>();
-	vector<vector<string> > sub;
-	try {
-		fillVectorVectorStringQuote(sub, valueStart, valueEnd, '$', ';');
-		for (vector<vector<string> >::iterator it = sub.begin(); it != sub.end(); ++it) {
-			if (!it->empty()) {
-				vector<string>::iterator sit = it->begin();
-				string name = *sit++;
-				ViewSubset &subset = (*subsets)[name];
-				if (sit != it->end()) {
-					subset.dimension = *sit++;
+	string line(valueStart, valueEnd);
+	vector<string> sub;
+	StringUtils::splitString3(line, sub, '$', false);
+	for (vector<string>::iterator it = sub.begin(); it != sub.end(); ++it) {
+		if (!it->empty()) {
+			vector<string> split_subset;
+			StringUtils::splitString3(*it, split_subset, ';', true);
+			vector<string>::iterator sit = split_subset.begin();
+			string name = StringUtils::unQuote(*sit++);
+			ViewSubset &subset = (*subsets)[name];
+			if (sit != split_subset.end()) {
+				subset.dimension = StringUtils::unQuote(*sit++);
+			}
+			bool stop = false;
+			for (; sit != split_subset.end();) {
+				if (sit->empty()) {
+					stop = true;
+					break;
 				}
-				bool stop = false;
-				for (; sit != it->end();) {
-					if (sit->empty()) {
-						stop = true;
-						break;
+				unsigned int filter = StringUtils::stringToInteger(*sit++);
+				switch (filter) {
+				case FilterSettings::PICKLIST:
+				{
+					BasicFilterSettings bas;
+					if (fillPicklistFilter(bas, sit, split_subset.end())) {
+						subset.basic.push_back(bas);
 					}
-					unsigned int filter = StringUtils::stringToInteger(*sit++);
-					switch (filter) {
-					case FilterSettings::PICKLIST:
-					{
-						BasicFilterSettings bas;
-						if (fillPicklistFilter(bas, sit, it->end())) {
-							subset.basic.push_back(bas);
-						}
-						break;
+					break;
+				}
+				case FilterSettings::STRUCTURAL:
+				{
+					StructuralFilterSettings structural;
+					if (fillStructuralFilter(structural, sit, split_subset.end())) {
+						subset.structural.push_back(structural);
 					}
-					case FilterSettings::STRUCTURAL:
-					{
-						StructuralFilterSettings structural;
-						if (fillStructuralFilter(structural, sit, it->end())) {
-							subset.structural.push_back(structural);
-						}
-						break;
+					break;
+				}
+				case FilterSettings::ALIAS:
+					fillAliasFilter(subset.alias, subset.field, sit, split_subset.end());
+					break;
+				case FilterSettings::TEXT:
+				{
+					fillTextFilter(subset.text, sit, split_subset.end());
+					break;
+				}
+				case FilterSettings::DATA:
+				{
+					DataFilterSettings data;
+					if (fillDataFilter(data, sit, split_subset.end())) {
+						subset.data.push_back(data);
 					}
-					case FilterSettings::ALIAS:
-						fillAliasFilter(subset.alias, subset.field, sit, it->end());
-						break;
-					case FilterSettings::TEXT:
-					{
-						fillTextFilter(subset.text, sit, it->end());
-						break;
-					}
-					case FilterSettings::DATA:
-					{
-						DataFilterSettings data;
-						if (fillDataFilter(data, sit, it->end())) {
-							subset.data.push_back(data);
-						}
-						break;
-					}
-					case FilterSettings::SORTING:
-						fillSortinglistFilter(subset.sorting, sit, it->end());
-						break;
-					default:
-						stop = true;
-						break;
-					}
-					if (stop) {
-						break;
-					}
+					break;
+				}
+				case FilterSettings::SORTING:
+					fillSortinglistFilter(subset.sorting, sit, split_subset.end());
+					break;
+				default:
+					stop = true;
+					break;
 				}
 				if (stop) {
 					break;
 				}
 			}
+			if (stop) {
+				break;
+			}
 		}
-	} catch (ParameterException &) {
-		subsets->clear();
 	}
 }
 
@@ -1033,24 +1032,20 @@ void PaloHttpRequest::fillViewAxes(vector<ViewAxis>*& axes, char* valueStart, ch
 {
 	axes = new vector<ViewAxis>(3);
 	vector<vector<string> > ax;
-	try {
-		fillVectorVectorStringQuote(ax, valueStart, valueEnd, '$', ';');
-		size_t i = 0;
-		for (vector<vector<string> >::iterator it = ax.begin(); it != ax.end(); ++it, ++i) {
-			if (!it->empty()) {
-				ViewAxis &axis = axes->at(i);
-				for (size_t i = 0; i < it->size() / 4; ++i) {
-					AxisSubset sub;
-					sub.subsetHandle = (*it)[i * 4];
-					sub.parent = (*it)[i * 4 + 1];
-					sub.calculation = (*it)[i * 4 + 2];
-					sub.zeroSup = (*it)[i * 4 + 3] == "1";
-					axis.as.push_back(sub);
-				}
+	fillVectorVectorStringQuote(ax, valueStart, valueEnd, '$', ';');
+	size_t i = 0;
+	for (vector<vector<string> >::iterator it = ax.begin(); it != ax.end(); ++it, ++i) {
+		if (!it->empty()) {
+			ViewAxis &axis = axes->at(i);
+			for (size_t i = 0; i < it->size() / 4; ++i) {
+				AxisSubset sub;
+				sub.subsetHandle = (*it)[i * 4];
+				sub.parent = (*it)[i * 4 + 1];
+				sub.calculation = (*it)[i * 4 + 2];
+				sub.zeroSup = (*it)[i * 4 + 3] == "1";
+				axis.as.push_back(sub);
 			}
 		}
-	} catch (ParameterException &) {
-		axes->clear();
 	}
 }
 
@@ -1058,14 +1053,9 @@ void PaloHttpRequest::fillViewArea(ViewArea*& area, char* valueStart, char* valu
 {
 	area = new ViewArea();
 	vector<vector<string> > strings;
-	try {
-		fillVectorVectorStringQuote(strings, valueStart, valueEnd, ';', ':');
-		if (!strings.empty() && !strings[0].empty() && !strings[0][0].empty()) {
-			area->properties = strings[0];
-		}
-	} catch (ParameterException &) {
-		delete area;
-		area = 0;
+	fillVectorVectorStringQuote(strings, valueStart, valueEnd, ';', ':');
+	if (!strings.empty() && !strings[0].empty() && !strings[0][0].empty()) {
+		area->properties = strings[0];
 	}
 }
 
@@ -1104,7 +1094,7 @@ bool PaloHttpRequest::fillStructuralFilter(StructuralFilterSettings &filter, vec
 		ret = false;
 	}
 	if (ret && sit != send) {
-		filter.bound = *sit++;
+		filter.bound = StringUtils::unQuote(*sit++);
 	} else {
 		ret = false;
 	}
@@ -1141,7 +1131,7 @@ bool PaloHttpRequest::fillStructuralFilter(StructuralFilterSettings &filter, vec
 	}
 	if (ret && sit != send) {
 		if (filter.revolve && !sit->empty()) {
-			filter.revolve_elem = *sit++;
+			filter.revolve_elem = StringUtils::unQuote(*sit++);
 		} else {
 			++sit;
 		}
@@ -1161,12 +1151,12 @@ bool PaloHttpRequest::fillAliasFilter(AliasFilterSettings &filterA, FieldFilterS
 		ret = false;
 	}
 	if (ret && sit != send) {
-		filterA.attribute1 = *sit++;
+		filterA.attribute1 = StringUtils::unQuote(*sit++);
 	} else {
 		ret = false;
 	}
 	if (ret && sit != send) {
-		filterA.attribute2 = *sit++;
+		filterA.attribute2 = StringUtils::unQuote(*sit++);
 	} else {
 		ret = false;
 	}
@@ -1242,7 +1232,7 @@ bool PaloHttpRequest::fillDataFilter(DataFilterSettings &filter, vector<string>:
 		ret = false;
 	}
 	if (ret && sit != send) {
-		filter.cube = *sit++;
+		filter.cube = StringUtils::unQuote(*sit++);
 	} else {
 		ret = false;
 	}
@@ -1253,13 +1243,13 @@ bool PaloHttpRequest::fillDataFilter(DataFilterSettings &filter, vector<string>:
 		ret = false;
 	}
 	if (ret && sit != send) {
-		filter.cmp.op1 = *sit++;
+		filter.cmp.op1 = StringUtils::unQuote(*sit++);
 	} else {
 		ret = false;
 	}
 	if (ret && sit != send) {
 		if (filter.cmp.use_strings) {
-			filter.cmp.par1s = *sit++;
+			filter.cmp.par1s = StringUtils::unQuote(*sit++);
 		} else {
 			if (!sit->empty()) {
 				filter.cmp.par1d = StringUtils::stringToDouble(*sit++);
@@ -1271,13 +1261,13 @@ bool PaloHttpRequest::fillDataFilter(DataFilterSettings &filter, vector<string>:
 		ret = false;
 	}
 	if (ret && sit != send) {
-		filter.cmp.op2 = *sit++;
+		filter.cmp.op2 = StringUtils::unQuote(*sit++);
 	} else {
 		ret = false;
 	}
 	if (ret && sit != send) {
 		if (filter.cmp.use_strings) {
-			filter.cmp.par2s = *sit++;
+			filter.cmp.par2s = StringUtils::unQuote(*sit++);
 		} else {
 			if (!sit->empty()) {
 				filter.cmp.par2d = StringUtils::stringToDouble(*sit++);
@@ -1353,7 +1343,7 @@ bool PaloHttpRequest::fillSortinglistFilter(SortingFilterSettings &filter, vecto
 		ret = false;
 	}
 	if (ret && sit != send) {
-		filter.attribute = *sit++;
+		filter.attribute = StringUtils::unQuote(*sit++);
 	} else {
 		ret = false;
 	}

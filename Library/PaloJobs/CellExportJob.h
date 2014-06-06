@@ -185,12 +185,11 @@ public:
 			std::list<PCubeArea> larea = area->split(pit, mySkipEmpty || jobRequest->baseOnly ? 0 : jobRequest->blockSize, splitToTheEnd);
 			std::list<PCubeArea>::iterator it;
 			for (it = larea.begin(); it != larea.end(); ++it) {
-				PCubeArea calcArea = checkRights(vRights, checkPermissions, *it, 0, cube, database, user, noPermission, unknown, isNoPermission, isUnknown, this->dims);
+				PCubeArea calcArea = checkRights(vRights, checkPermissions, *it, 0, cube, database, user, false, noPermission, isNoPermission, this->dims);
 
 				PCellStream cs;
 				PCellStream props;
 				if (calcArea->getSize()) {
-//					cout << *calcArea << endl;
 					cs = cube->calculateArea(calcArea, type, jobRequest->useRules ? ALL_RULES : NO_RULES, mySkipEmpty, freeCount ? freeCount : UNLIMITED_SORTED_PLAN);
 					if (jobRequest->properties) {
 						props = getCellPropsStream(database, cube, calcArea, *jobRequest->properties);

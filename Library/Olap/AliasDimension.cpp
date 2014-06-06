@@ -38,6 +38,10 @@
 
 namespace palo {
 
+uint32_t AliasDimension::getToken() const {
+	return alias(false)->getToken();
+}
+
 bool AliasDimension::merge(const CPCommitable &o, const PCommitable &p)
 {
 	if (o && old) {

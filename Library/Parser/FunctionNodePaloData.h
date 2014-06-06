@@ -227,8 +227,10 @@ public:
 							planner.setCurrentRule(rule);
 							PPlanNode source = planner.createPlan(CubeArea::ALL, RulesType(ALL_RULES | NO_RULE_IDS), true, UNLIMITED_SORTED_PLAN);
 							if (source) {
-								result = PPlanNode(new TransformationPlanNode(area, source, SetMultimaps(), 1.0, dimensionMap));
+								TransformationPlanNode *tpn = new TransformationPlanNode(area, source, SetMultimaps(), 1.0, dimensionMap);
+								result = PPlanNode(tpn);
 								if (result) {
+									tpn->setSourceCubeId(dbID_cubeID(adb->getId(), acube->getId()));
 									valid = true;
 								}
 							}
