@@ -154,6 +154,7 @@ PaloOptions::PaloOptions(int argc, char** argv) :
 	ignoreCellData = false;
 	initFile = "palo.ini";
 	logFile = "-";
+	outputToStdout = false;
 	logLevel = "error";
 	loginType = WORKER_NONE;
 	winSSOenabled = false;
@@ -568,7 +569,11 @@ void PaloOptions::parseOptions(OptionsIterator& iter, bool commandLine)
 				break;
 
 			case 'o':
-				logFile = optarg;
+				if (optarg == "-") {
+					outputToStdout = true;
+				} else {
+					logFile = optarg;
+				}
 				break;
 
 			case 'O':

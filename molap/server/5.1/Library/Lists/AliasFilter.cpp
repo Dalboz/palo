@@ -165,7 +165,10 @@ struct AliasFilter::FilterOperator {
 		} else {
 			double val = 0.0;
 			if (cval.isString()) {
-				val = StringUtils::stringToDouble(cval);
+				try {
+					val = StringUtils::stringToDouble(cval);
+				} catch (ParameterException &) {
+				}
 			} else if (cval.isNumeric()) {
 				val = cval.getNumeric();
 			} else {
@@ -239,10 +242,16 @@ ElementsType AliasFilter::apply(bool &worked)
 	area->insert(0, s);
 	area->insert(1, m_subset_ref.getSet(true));
 
-	map<IdentifierType, map<IdentifierType, pair<bool, bool> > > valid;
+	// This is a bit complicated
+	// first map is element ids
+	// second map is attribute ids
+	// set contains condition numbers that were valid for that attribute
+	// bool is for information if the value was processed in calculateArea, others have to be checked against empty value
+	// element is valid if there is at least one condition, that was valid for all attributes
+	map<IdentifierType, map<IdentifierType, pair<set<int>, bool> > > valid;
 	for (SubSet::Iterator it = m_subset_ref.begin(true); !it.end(); ++it) {
 		for (IdentifiersType::iterator fit = m_filter_coords.begin(); fit != m_filter_coords.end(); ++fit) {
-			valid[it.getId()][*fit] = make_pair(false, false);
+			valid[it.getId()][*fit] = make_pair(set<int>(), false);
 		}
 	}
 	CellValue def;
@@ -252,7 +261,7 @@ ElementsType AliasFilter::apply(bool &worked)
 			const CellValue &val = cs->getValue();
 			const IdentifiersType &key = cs->getKey();
 			if ((queryFlag(SEARCH_ONE) || queryFlag(SEARCH_TWO)) && m_attr1_coord == key[0]) {
-				if (!val.isError() && m_subset_ref.getSearchAlias(key[1], false, def).isEmpty()) {
+				if (!val.isError() && m_subset_ref.getSearchAlias(key[1], def).isEmpty()) {
 					m_subset_ref.setSearchAlias(key[1], val);
 				}
 			}
@@ -262,11 +271,9 @@ ElementsType AliasFilter::apply(bool &worked)
 				}
 			}
 			if (queryFlag(USE_FILTEREXP) && !m_filterexp.empty() && flt.find(key[0]) != flt.end()) {
-				pair<bool, bool> &v = valid[key[1]][key[0]];
+				pair<set<int>, bool> &v = valid[key[1]][key[0]];
 				v.second = true;
-				if (check(val, key[0])) {
-					v.first = true;
-				}
+				v.first =check(val, key[0]);
 			}
 		}
 	}
@@ -274,15 +281,21 @@ ElementsType AliasFilter::apply(bool &worked)
 	if (queryFlag(USE_FILTEREXP) && !m_filterexp.empty()) {
 		worked = true;
 		for (SubSet::Iterator it = m_subset_ref.begin(true); !it.end(); ++it) {
-			map<IdentifierType, pair<bool, bool> > &v = valid[it.getId()];
+			map<IdentifierType, pair<set<int>, bool> > &v = valid[it.getId()];
 			bool validid = true;
-			for (map<IdentifierType, pair<bool, bool> >::iterator vit = v.begin(); vit != v.end(); ++vit) {
+			set<int> curr;
+			for (map<IdentifierType, pair<set<int>, bool> >::iterator vit = v.begin(); vit != v.end(); ++vit) {
 				if (!vit->second.second) {
-					if (check(CellValue::NullNumeric, vit->first)) {
-						vit->second.first = true;
-					}
+					vit->second.first = check(CellValue::NullNumeric, vit->first);
 				}
-				if (!vit->second.first) {
+				if (vit == v.begin()) {
+					curr = vit->second.first;
+				} else {
+					set<int> tmp;
+					set_intersection(curr.begin(), curr.end(), vit->second.first.begin(), vit->second.first.end(), insert_iterator<set<int > >(tmp, tmp.end()));
+					curr.swap(tmp);
+				}
+				if (curr.empty()) {
 					validid = false;
 					break;
 				}
@@ -372,21 +385,28 @@ void AliasFilter::applySettings()
 	}
 }
 
-bool AliasFilter::check(const CellValue &val, IdentifierType attrId)
+set<int> AliasFilter::check(const CellValue &val, IdentifierType attrId)
 {
-	bool ret = false;
+	set<int> ret;
 
+	bool first = true;
 	for (filterexpression_map_vec_type::iterator ait = m_filterexp.find(attrId); ait != m_filterexp.end() && ait->first == attrId; ++ait) {
-		ret = false;
-		for (filterexpression_vec_type::iterator fit = ait->second.begin(); fit != ait->second.end(); ++fit) {
+		int i = 0;
+		for (filterexpression_vec_type::iterator fit = ait->second.begin(); fit != ait->second.end(); ++fit, ++i) {
 			if (FilterOperator::check(val, *fit)) {
-				ret = true;
-				break;
+				if (first) {
+					ret.insert(i);
+				}
+			} else {
+				if (!first) {
+					ret.erase(i);
+				}
 			}
 		}
-		if (!ret) {
+		if (ret.empty()) {
 			break;
 		}
+		first = false;
 	}
 	return ret;
 }

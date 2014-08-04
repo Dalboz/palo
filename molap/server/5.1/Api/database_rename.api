@@ -10,6 +10,10 @@
 @param_type identifier
 @param_description Identifier of the database
  
+@param name_database
+@param_type string
+@param_description Name of the database. Used only if database parameter is omitted.
+
 @param new_name
 @param_type string
 @param_description New name of the database

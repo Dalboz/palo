@@ -1099,6 +1099,9 @@ Element* Dimension::addElement(PServer server, PDatabase db, IdentifierType idEl
 		element.setIdentifier(idElement);
 	}
 
+	// make copy of elementList and all indexes
+	checkOut(true, true, true);
+
 	StringVector::StringId nameId = namesMap->pushToVector(name);
 	element.setName(nameId);
 
@@ -1121,9 +1124,6 @@ Element* Dimension::addElement(PServer server, PDatabase db, IdentifierType idEl
 
 	// dimension has been changed
 	setStatus(db, CHANGED);
-
-	// make copy of elementList and all indexes
-	checkOut(true, true, true);
 
 	IdentifierType internalId = elementList->addElement(element, db, this);
 	Element &newElement = (*elementList)[internalId];

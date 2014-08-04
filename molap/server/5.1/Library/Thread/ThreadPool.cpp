@@ -28,6 +28,7 @@
  */
 
 #include "Thread/ThreadPool.h"
+#include "Logger/Logger.h"
 
 #if defined(_MSC_VER)
 #include "DumpHandler/DumpHandler.h"
@@ -95,7 +96,7 @@ void ThreadPool::addJob(PThreadPoolJob job, unsigned int priority)
 #endif
 			}
 		}
-		++(job->tg->first);
+		++(job->tg->count);
 	}
 	if (useHP) {
 		hpWakeup.release();
@@ -105,32 +106,38 @@ void ThreadPool::addJob(PThreadPoolJob job, unsigned int priority)
 	boost::thread::yield();
 }
 
-void ThreadPool::join(ThreadGroup &tg)
+void ThreadPool::join(ThreadGroup &tg, bool throwex)
 {
-	tg->second->set(0);
+	tg->sem->set(0);
 	for (;;) {
 		{
 			boost::unique_lock<boost::mutex> lock(m);
-			if (!tg->first) {
+			if (!tg->count) {
 				break;
 			}
 		}
-		tg->second->wait();
+		tg->sem->wait();
+	}
+	vector<TGError> errors;
+	{
+		boost::unique_lock<boost::mutex> lock(m);
+		errors = tg->errors;
+		delete tg->sem;
+		threadGroups.erase(tg);
+	}
+	if (throwex) {
+		if (!errors.empty()) {
+			TGError &e = errors[0];
+			throw ErrorException(e.type, e.message, e.details, e.ruleId);
+		}
 	}
 }
 
-ThreadPool::ThreadGroup ThreadPool::createThreadGroup()
+ThreadPool::ThreadGroup ThreadPool::createThreadGroup(bool notthrow)
 {
 	boost::unique_lock<boost::mutex> lock(m);
-	threadGroups.push_back(std::make_pair(0, new Semaphore));
+	threadGroups.push_back(TGInner(notthrow));
 	return --threadGroups.end();
-}
-
-void ThreadPool::destroyThreadGroup(ThreadGroup &tg)
-{
-	boost::unique_lock<boost::mutex> lock(m);
-	delete tg->second;
-	threadGroups.erase(tg);
 }
 
 void ThreadPool::operator()(bool hpOnly)
@@ -158,6 +165,8 @@ void ThreadPool::operator()(bool hpOnly)
 		} else {
 			wakeup.wait();
 		}
+		bool err = false;
+		bool notthrow = false;
 		{
 			boost::unique_lock<boost::mutex> lock(m);
 			if (stop) {
@@ -175,9 +184,29 @@ void ThreadPool::operator()(bool hpOnly)
 				job = hptasks.front();
 				hptasks.pop_front();
 			}
+			err = !job->tg->errors.empty();
+			notthrow = job->tg->notthrow;
 		}
 		TGReleaser fin(job->tg, this, hpOnly);
-		(*job)();
+		if (!err) {
+			try {
+				(*job)();
+			} catch (ErrorException &e) {
+				if (notthrow) {
+					Logger::error << "error code: " << (int32_t)e.getErrorType() << " description: " << ErrorException::getDescriptionErrorType(e.getErrorType()) << " message: " << e.getMessage() << endl;
+				} else {
+					boost::unique_lock<boost::mutex> lock(m);
+					job->tg->errors.push_back(TGError(e.getErrorType(), e.getMessage(), e.getDetails(), e.getRuleId()));
+				}
+			} catch (...) {
+				if (notthrow) {
+					Logger::error << "Unhandled exception occurred." << endl;
+				} else {
+					boost::unique_lock<boost::mutex> lock(m);
+					job->tg->errors.push_back(TGError(ErrorException::ERROR_INTERNAL, "Internal error occurred", "Internal error occurred", 0));
+				}
+			}
+		}
 		job.reset();
 	}
 }

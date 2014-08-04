@@ -313,7 +313,6 @@ void Server::triggerMarkerCalculation()
 			if (fromCube && fromCube->getStatus() > Cube::UNLOADED && !Cube::isSameCube(cube, fromCube, database->getId(), fromDbCube.first) && !cube->isLocked()) {
 				if (alreadyBuilt.find(fromDbCube) == alreadyBuilt.end() && fromCube->hitMarkerRebuildLimit()) {
 					fromCube->rebuildAllMarkers();
-					addCubeToList(database, fromCube);
 					alreadyBuilt.insert(fromDbCube);
 				}
 			}
@@ -1376,7 +1375,7 @@ void Server::addSystemDatabaseIntern(bool sys)
 ////////////////////////////////////////////////////////////////////////////////
 bool Server::svsConfigured() const
 {
-	return loginType != WORKER_NONE || dimensionWorkerConfigured || CubeWorker::useCubeWorker();
+	return loginType != WORKER_NONE || dimensionWorkerConfigured || CubeWorker::useCubeWorker() || winAuthEnabled();
 }
 
 bool Server::svsIsStopped() const

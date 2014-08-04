@@ -57,7 +57,7 @@ Logger::Logger() : zeroPosition(0), linesCount(0)
 }
 
 Logger::LoggerStreamHeader::LoggerStreamHeader(const string& prefix, ostream& output) :
-	on(true), prefix(prefix), stream(output)
+	on(true), prefix(prefix), stream(output), duplicateToStdout(false)
 {
 }
 
@@ -100,12 +100,13 @@ void Logger::setLogLevel(const string& level)
 	}
 }
 
-void Logger::setLogFile(const string& file)
+void Logger::setLogFile(const string& file, bool duplicateToStdout)
 {
 	ostream * os;
 
 	if (file == "-") {
 		os = &cout;
+		duplicateToStdout = false;
 	} else if (file == "+") {
 		os = &cerr;
 	} else {
@@ -121,11 +122,11 @@ void Logger::setLogFile(const string& file)
 		logger.fileName.clear();
 		Logger::error << "cannot open log file '" << file << "'" << endl;
 	} else {
-		Logger::error.setStream(*os);
-		Logger::warning.setStream(*os);
-		Logger::info.setStream(*os);
-		Logger::debug.setStream(*os);
-		Logger::trace.setStream(*os);
+		Logger::error.setStream(*os, duplicateToStdout);
+		Logger::warning.setStream(*os, duplicateToStdout);
+		Logger::info.setStream(*os, duplicateToStdout);
+		Logger::debug.setStream(*os, duplicateToStdout);
+		Logger::trace.setStream(*os, duplicateToStdout);
 	}
 }
 }

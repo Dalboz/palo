@@ -401,15 +401,22 @@ public:
 	/// check if Job Running within this context was signaled to stop and throw
 	// the exception if so
 	////////////////////////////////////////////////////////////////////////////////
-	void check() {
+	bool check(bool th = true) {
 		if (!ignoreStopJob) {
 			if (stopJob != NO_STOP) {
-				throw ErrorException(ErrorException::ERROR_STOPPED_BY_ADMIN, stopJob == ADMIN_STOP ? "job stopped by administrator" : "job stopped");
+				if (th) {
+					throw ErrorException(ErrorException::ERROR_STOPPED_BY_ADMIN, stopJob == ADMIN_STOP ? "job stopped by administrator" : "job stopped");
+				}
+				return false;
 			}
 			if (task && task->wasClosed()) {
-				throw ErrorException(ErrorException::ERROR_STOPPED_BY_ADMIN, "connection closed");
+				if (th) {
+					throw ErrorException(ErrorException::ERROR_STOPPED_BY_ADMIN, "connection closed");
+				}
+				return false;
 			}
 		}
+		return true;
 	}
 
 	void setSaveToCache(bool save) {

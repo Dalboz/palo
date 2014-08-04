@@ -387,6 +387,10 @@ void RearrangeProcessor::cacheInput()
 	storage->setCellValue(inStream);
 	if (Logger::isTrace()) {
 		Logger::trace << "RearrangeProcessor cached " << storage->valuesCount() << " values" << endl;
+//		PCellStream cachedVals = storage->getCellValues(PArea());
+//		while (cachedVals->next()) {
+//			Logger::trace << cachedVals->getKey() << " " << cachedVals->getDouble() << endl;
+//		}
 	}
 }
 
@@ -394,12 +398,28 @@ bool TransformationProcessor::move(const IdentifiersType &key, bool *found)
 {
 //	Logger::debug << this << " M " << key << " from " << getKey() << endl;
 	// if the key is already reached
+	size_t firstOutputChange = key.size();
 	if (nextResult) {
 		const IdentifiersType &currentKey = getKey();
-		int diff = CellValueStream::compare(currentKey, key);
+		int diff = 0;
+		size_t size = key.size();
+		for (size_t i = 0; i < size; i++) {
+			if (currentKey[i] < key[i]) {
+				diff = -1;
+				firstOutputChange = i;
+				break;
+			} else if (currentKey[i] > key[i]) {
+				firstOutputChange = i;
+				diff = 1;
+				break;
+			}
+		}
 		if (diff >= 0) {
 			if (found) {
 				*found = diff == 0;
+			}
+			if (Logger::isTrace()) {
+				Logger::trace << "TransformationProcessor::move() out:" << currentKey << " move to key: " << key << endl; // << outKey
 			}
 			return true;
 		}
@@ -407,13 +427,15 @@ bool TransformationProcessor::move(const IdentifiersType &key, bool *found)
 
 	// generate new start for input
 	IdentifiersType nextMoveToInKey(moveToInKey);
+	size_t firstSrcDim = key.size();
 	// transform the key here
 	for (DimsMappingType::const_iterator transIt = dimMapping.begin(); transIt != dimMapping.end(); ++transIt) {
 		nextMoveToInKey[transIt->second] = key[transIt->first];
+		firstSrcDim = min(transIt->first, firstSrcDim);
 	}
 	int relativeToInput = lastInKey.empty() ? 1 : CellValueStream::compare(nextMoveToInKey, lastInKey);
 
-	//return CellValueStream::move(key, found);
+//	return CellValueStream::move(key, found);
 
 	bool nextInput = false;
 	bool inputFound = false;
@@ -437,6 +459,18 @@ bool TransformationProcessor::move(const IdentifiersType &key, bool *found)
 	// if input value found
 	if (nextInput) {
 		const IdentifiersType &foundInputKey = child->getKey();
+
+		ExpansionRangesType::iterator eRIt;
+		for (eRIt = expansionRanges.begin(); eRIt != expansionRanges.end(); ++eRIt) {
+			if (firstOutputChange <= eRIt->first.first) {
+				moveToInKey = eRIt->second;
+				while (++eRIt != expansionRanges.end()) {
+					eRIt->second = moveToInKey;
+				}
+				break;
+			}
+		}
+
 		lastInKey = foundInputKey;
 		// compare found input value with requested and reset part of the generated output key iterators
 		size_t firstOutputChange = key.size();
@@ -446,38 +480,87 @@ bool TransformationProcessor::move(const IdentifiersType &key, bool *found)
 			}
 			outKey[transIt->first] = foundInputKey[transIt->second];
 		}
-		if (!inputFound) {
-			moveToInKey = lastInKey;
+
+		for (size_t targetDim = 0; targetDim < key.size(); targetDim++) {
+			if (expansions[targetDim].first) {
+				if (targetDim <= firstOutputChange) {
+					// find the requested element in the set
+					expansions[targetDim].second = expansions[targetDim].first->find(key[targetDim]);
+					if (expansions[targetDim].second == expansions[targetDim].first->end()) {
+						// key outside the selection?
+						throw ErrorException(ErrorException::ERROR_INTERNAL, "TransformationProcessor::move(): key outside the area.");
+					}
+					outKey[targetDim] = key[targetDim];
+				} else {
+					// get beginning of the set
+					expansions[targetDim].second = expansions[targetDim].first->begin();
+					outKey[targetDim] = *expansions[targetDim].second;
+				}
+			}
 		}
 
-		for (size_t targetDim = 0; targetDim < firstOutputChange; targetDim++) {
-			if (expansions[targetDim].first) {
-				// find the requested element in the set
-				expansions[targetDim].second = expansions[targetDim].first->find(key[targetDim]);
-				if (expansions[targetDim].second == expansions[targetDim].first->end()) {
-					// key outside the selection?
-					throw ErrorException(ErrorException::ERROR_INTERNAL, "TransformationProcessor::move(): key outside the area.");
-				}
-				outKey[targetDim] = key[targetDim];
-			}
-		}
-		for (size_t targetDim = firstOutputChange; targetDim < key.size(); targetDim++) {
-			if (expansions[targetDim].first) {
-				// get beginning of the set
-				expansions[targetDim].second = expansions[targetDim].first->begin();
-				outKey[targetDim] = *expansions[targetDim].second;
-			}
-		}
 		if (found) {
 			*found = CellValueStream::compare(outKey, key) == 0;
 		}
+		if (Logger::isTrace()) {
+			Logger::trace << "TransformationProcessor::move() out:" << outKey << " move to key: " << key << endl; // << outKey
+		}
+		nextResult = true;
 		return true;
 	} else {
 		// no input found
 		if (found) {
 			*found = false;
 		}
+		if (expansionRanges.size() && expansionRanges[0].first.first < firstSrcDim) {
+			size_t dim;
+			for (dim = expansionRanges[0].first.first; dim <= expansionRanges[0].first.second; dim++) {
+				if (expansions[dim].first) {
+					expansions[dim].second = expansions[dim].first->find(key[dim]);
+					if (expansions[dim].second == expansions[dim].first->end()) {
+						throw ErrorException(ErrorException::ERROR_INTERNAL, "TransformationProcessor::move(): key outside the area.");
+					}
+					outKey[dim] = *expansions[dim].second;
+				}
+			}
+			for (; dim < outKey.size(); dim++) {
+				if (expansions[dim].first) {
+					expansions[dim].second = expansions[dim].first->begin();
+					outKey[dim] = *expansions[dim].second;
+				}
+			}
+			for (int expandDim = expansionRanges[0].first.second; expandDim >= 0; expandDim--) {
+				if (expansions[expandDim].first) {
+					++expansions[expandDim].second;
+					if (expansions[expandDim].second == expansions[expandDim].first->end()) {
+						expansions[expandDim].second = expansions[expandDim].first->begin();
+						outKey[expandDim] = *expansions[expandDim].second;
+						if (expandDim == 0) {
+							break;
+						}
+						// continue to next dimension
+					} else {
+						ExpansionRangesType::iterator eRIt = expansionRanges.begin();
+						moveToInKey = eRIt->second;
+						while (++eRIt != expansionRanges.end()) {
+							eRIt->second = moveToInKey;
+						}
+						outKey[expandDim] = *expansions[expandDim].second;
+						childSP->reset();
+						child = 0;
+						bool res = next();
+						if (Logger::isTrace()) {
+							Logger::trace << "TransformationProcessor::move() out:" << (res ? outKey : EMPTY_KEY) << " move to key: " << key << endl; // << outKey
+						}
+						return res;
+					}
+				}
+			}
+		}
 		nextResult = false;
+		if (Logger::isTrace()) {
+			Logger::trace << "TransformationProcessor::move() out:" << EMPTY_KEY << " move to key: " << key << endl; // << outKey
+		}
 		return false;
 	}
 }
@@ -725,7 +808,11 @@ void TransformationProcessor::setValue(const CellValue &value)
 
 const IdentifiersType &TransformationProcessor::getKey() const
 {
-	return child ? outKey : EMPTY_KEY;
+	if (child && nextResult) {
+		return outKey;
+	} else {
+		return EMPTY_KEY;
+	}
 }
 
 const GpuBinPath &TransformationProcessor::getBinKey() const
@@ -736,7 +823,10 @@ const GpuBinPath &TransformationProcessor::getBinKey() const
 
 void TransformationProcessor::reset()
 {
-	child->reset();
+	if (child) {
+		child->reset();
+	}
+//	lastInKey.clear();
 	nextResult = false;
 }
 

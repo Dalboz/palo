@@ -28,6 +28,7 @@
  */
 
 #include "Olap/Cube.h"
+#include "Olap/Database.h"
 #include "InputOutput/Condition.h"
 #include "InputOutput/ConstantCondition.h"
 #include "Engine/DFilterProcessor.h"
@@ -39,6 +40,7 @@ DFilterQuantificationProcessor::DFilterQuantificationProcessor(PEngineBase engin
 {
 	const QuantificationPlanNode *plan = dynamic_cast<const QuantificationPlanNode *>(node.get());
 	area = plan->getFilteredArea();
+	numericArea = plan->getNumericArea();
 	quantType = plan->getQuantificationType();
 	filteredDim = plan->getDimIndex();
 	if (filteredDim == (uint32_t)NO_DFILTER) {
@@ -53,9 +55,16 @@ DFilterQuantificationProcessor::DFilterQuantificationProcessor(PEngineBase engin
 		throw ErrorException(ErrorException::ERROR_INTERNAL, "DFilterQuantificationProcessor: invalid condition");
 	}
 	isVirtual = plan->isVirtual();
-	if (!isVirtual) {
-		numCellsPerElement = plan->getNumCellCount();
-		strCellsPerElement = plan->getStrCellCount();
+	if (!isVirtual && quantType != QuantificationPlanNode::EXISTENCE) {
+		if (numericArea->getSize() > 0) {
+			numCellsPerElement = 1;
+			for (size_t i = 0; i < numericArea->dimCount(); i++) {
+				if (i != filteredDim) {
+					numCellsPerElement *= numericArea->getDim(i)->size();
+				}
+			}
+		}
+		strCellsPerElement = plan->getCellCount() - numCellsPerElement;
 	}
 }
 
@@ -63,12 +72,14 @@ bool DFilterQuantificationProcessor::next()
 {
 	if (init) {
 		bool bCalc;
+		// for virtual cubes calculate the whole area (don't call processEmptyCells)
+		// for EXISTENCE skip empty values and don't call processEmptyCells
+		// for ALL, ANY_NUM and ANY_STR skip empty values and call processEmptyCells
+
 		if (isVirtual || quantType == QuantificationPlanNode::EXISTENCE) {
 			bCalc = true;
-		} else if (quantType == QuantificationPlanNode::ANY_STR) {
-			bCalc = strCellsPerElement != 0;
 		} else {
-			bCalc = numCellsPerElement != 0;
+			bCalc = numCellsPerElement + strCellsPerElement > 0;
 		}
 		if (bCalc) {
 			if (quantType == QuantificationPlanNode::ALL) {
@@ -78,44 +89,70 @@ bool DFilterQuantificationProcessor::next()
 				}
 			}
 
-			RulesType rulesType = calcRules ? RulesType(ALL_RULES | NO_RULE_IDS) : NO_RULES;
-			PPlanNode plan = area->getCube()->createPlan(area, cellType(), rulesType, true, UNLIMITED_SORTED_PLAN);
-			vector<PPlanNode> children;
-			if (plan->getType() == UNION) {
-				children = plan->getChildren();
+			bool isNumeric = false; // the first area in 'areaList' is numeric, not used for virtual cubes and QuantificationPlanNode::EXISTENCE
+			SubCubeList areaList;
+			if (isVirtual || quantType == QuantificationPlanNode::EXISTENCE) {
+				areaList.push_back(area);
 			} else {
-				children.push_back(plan);
+				if (numericArea->getSize()) {
+					isNumeric = true;
+					areaList.push_back(numericArea);
+
+					PCubeArea intersectionArea;
+					SubCubeList stringAreas;
+					area->intersection(*numericArea.get(), &intersectionArea, &stringAreas);
+
+					for (SubCubeList::iterator it = stringAreas.begin(); it != stringAreas.end(); ++it) {
+						areaList.push_back(*it);
+					}
+				} else {
+					areaList.push_back(area);
+				}
 			}
 
-			CalcNodeType calcType = CALC_UNDEF;
 			bool isComplete = false;
-			while (nextCalcNodeType(calcType, false)) {
-				for (size_t i = 0; i < children.size(); i++) {
-					bool isAggr;
-					bool isRule;
-					PlanNodeType childType = children[i]->getType();
-					if (!matchingPlanNode(calcType, childType, isAggr, isRule)) {
-						continue;
-					}
-					set<IdentifierType> &rset = quantType == QuantificationPlanNode::ALL ? complement : subset;
-					PArea rarea = isVirtual ? PArea(new Area(*children[i]->getArea())) : children[i]->getArea()->reduce(filteredDim, rset);
-					if (rarea->getSize()) {
-						if (quantType == QuantificationPlanNode::EXISTENCE && isAggr && !isVirtual) {
-							processAggregation(children[i], rarea, isComplete);
-						} else {
-							processReducedArea(children[i], rarea, 0, isRule, isComplete);
+			for (SubCubeList::iterator it = areaList.begin(); it != areaList.end(); ++it) {
+				PCubeArea a = PCubeArea(new CubeArea(area->getDatabase(), area->getCube(), *it->second.get()));
+				RulesType rulesType = calcRules ? RulesType(ALL_RULES | NO_RULE_IDS) : NO_RULES;
+
+				PPlanNode plan = area->getCube()->createPlan(a, CubeArea::ALL, rulesType, true, UNLIMITED_SORTED_PLAN);
+				vector<PPlanNode> children;
+				if (plan->getType() == UNION) {
+					children = plan->getChildren();
+				} else {
+					children.push_back(plan);
+				}
+
+				CalcNodeType calcType = CALC_UNDEF;
+				while (nextCalcNodeType(calcType, false)) {
+					for (size_t i = 0; i < children.size(); i++) {
+						bool isAggr;
+						bool isRule;
+						PlanNodeType childType = children[i]->getType();
+						if (!matchingPlanNode(calcType, childType, isAggr, isRule)) {
+							continue;
+						}
+						set<IdentifierType> &rset = quantType == QuantificationPlanNode::ALL ? complement : subset;
+						PArea rarea = isVirtual ? PArea(new Area(*children[i]->getArea())) : children[i]->getArea()->reduce(filteredDim, rset);
+						if (rarea->getSize()) {
+							if (quantType == QuantificationPlanNode::EXISTENCE && isAggr && !isVirtual) {
+								processAggregation(children[i], rarea, isComplete);
+							} else {
+								processReducedArea(children[i], rarea, 0, isRule, isComplete, isNumeric);
+							}
+						}
+						if (isComplete) {
+							break;
 						}
 					}
 					if (isComplete) {
 						break;
 					}
 				}
-				if (isComplete) {
-					break;
-				}
+				isNumeric = false;
 			}
 			if (quantType != QuantificationPlanNode::EXISTENCE && !isComplete && !isVirtual) {
-				processEmptyCells(isComplete);
+				processEmptyCells();
 			}
 		}
 		pos = subset.begin();
@@ -133,7 +170,8 @@ bool DFilterQuantificationProcessor::next()
 	}
 }
 
-const CellValue &DFilterQuantificationProcessor::getValue() {
+const CellValue &DFilterQuantificationProcessor::getValue()
+{
 	if (!validValue) {
 		map<IdentifierType, CellValue>::iterator vit = values.find(*pos);
 		if (vit == values.end()) {
@@ -151,8 +189,10 @@ void DFilterQuantificationProcessor::reset()
 	init = true;
 	subset.clear();
 	complement.clear();
-	counterTrue.clear();
-	counterFalse.clear();
+	counterNumTrue.clear();
+	counterNumFalse.clear();
+	counterStrTrue.clear();
+	counterStrFalse.clear();
 	values.clear();
 	validValue = false;
 }
@@ -176,7 +216,8 @@ void DFilterQuantificationProcessor::processAggregation(CPPlanNode planNode, PAr
 
 			rarea = PArea(new Area(*children[i]->getArea()->reduce(filteredDim, subset)));
 			if (rarea->getSize()) {
-				processReducedArea(children[i], rarea, &(*aggrMaps)[filteredDim], isRule, isComplete);
+				bool isNumeric = false; // doesn't matter for EXISTENCE
+				processReducedArea(children[i], rarea, &(*aggrMaps)[filteredDim], isRule, isComplete, isNumeric);
 				if (isComplete) {
 					return;
 				}
@@ -185,7 +226,7 @@ void DFilterQuantificationProcessor::processAggregation(CPPlanNode planNode, PAr
 	}
 }
 
-void DFilterQuantificationProcessor::processReducedArea(CPPlanNode planNode, PArea rarea, AggregationMap *aggrMap, bool isRule, bool &isComplete)
+void DFilterQuantificationProcessor::processReducedArea(CPPlanNode planNode, PArea rarea, AggregationMap *aggrMap, bool isRule, bool &isComplete, bool isNumeric)
 {
 	PCellStream cs;
 	if (planNode->getType() == CACHE) {
@@ -198,7 +239,7 @@ void DFilterQuantificationProcessor::processReducedArea(CPPlanNode planNode, PAr
 	} else {
 		PCubeArea childArea(new CubeArea(area->getDatabase(), area->getCube(), *rarea));
 		RulesType rulesType = calcRules || planNode->getType() != SOURCE ? RulesType(ALL_RULES | NO_RULE_IDS) : NO_RULES;
-		PPlanNode childPlan = area->getCube()->createPlan(childArea, cellType(), rulesType, !isVirtual, UNLIMITED_SORTED_PLAN);
+		PPlanNode childPlan = area->getCube()->createPlan(childArea, CubeArea::ALL, rulesType, !isVirtual, UNLIMITED_SORTED_PLAN);
 		if (childPlan) {
 			cs = area->getCube()->evaluatePlan(childPlan, EngineBase::ANY, true);
 		} else {
@@ -211,14 +252,14 @@ void DFilterQuantificationProcessor::processReducedArea(CPPlanNode planNode, PAr
 		const CellValue &val = cs->getValue();
 		if (aggrMap) {
 			for (AggregationMap::TargetReader targets = aggrMap->getTargets(id); !targets.end(); ++targets) {
-				checkValue(*targets, val, isComplete);
+				checkValue(*targets, val, isComplete, isNumeric);
 				if (isComplete) {
 					break;
 				}
 
 			}
 		} else {
-			checkValue(id, val, isComplete);
+			checkValue(id, val, isComplete, isNumeric);
 		}
 		if (isComplete) {
 			return;
@@ -226,30 +267,48 @@ void DFilterQuantificationProcessor::processReducedArea(CPPlanNode planNode, PAr
 	}
 }
 
-void DFilterQuantificationProcessor::processEmptyCells(bool &isComplete)
+void DFilterQuantificationProcessor::processEmptyCells()
 {
 	bool zeroCond = condition->check(quantType == QuantificationPlanNode::ANY_STR ? CellValue::NullString : CellValue::NullNumeric);
 	CPSet filteredSet = area->getDim(filteredDim);
+
+	const IdentifiersType *dims = area->getCube()->getDimensions();
+	Dimension *dim = area->getDatabase()->lookupDimension(dims->at(filteredDim), false).get();
+	double numCellCount;
+	double strCellCount;
 
 	if (quantType == QuantificationPlanNode::ALL) {
 		complement.clear();
 		for (Set::Iterator fit = filteredSet->begin(); fit != filteredSet->end(); ++fit) {
 			IdentifierType id = *fit;
+			getCounts(dim, id, numCellCount, strCellCount);
 
 			set<IdentifierType>::iterator sit = subset.find(id);
 			if (sit != subset.end()) {
-				if (counterFalse.find(id) != counterFalse.end()) { // the condition failed for at least one value
+				if (counterNumFalse.find(id) != counterNumFalse.end() || counterStrFalse.find(id) != counterStrFalse.end()) { // the condition failed for at least one value
 					values.erase(id);
 					subset.erase(id);
 					continue;
 				}
-				map<IdentifierType, double>::iterator mit = counterTrue.find(id);
-				if (mit == counterTrue.end() || mit->second < numCellsPerElement) { // the condition was not met for all values
-					if (zeroCond) {
-						values.insert(make_pair(id, CellValue::NullNumeric));
-					} else {
+
+				if (strCellCount) {
+					map<IdentifierType, double>::iterator mit = counterStrTrue.find(id);
+					if (mit == counterStrTrue.end() || mit->second < strCellCount) { // there is at least one empty string cell for 'id'
 						values.erase(id);
 						subset.erase(id);
+						continue;
+					}
+				}
+
+				if (numCellCount) {
+					map<IdentifierType, double>::iterator mit = counterNumTrue.find(id);
+					if (mit == counterNumTrue.end() || mit->second < numCellCount) { // the condition was not met for all values
+						if (zeroCond) {
+							values.insert(make_pair(id, CellValue::NullNumeric));
+						} else {
+							values.erase(id);
+							subset.erase(id);
+						}
 					}
 				}
 			}
@@ -257,18 +316,32 @@ void DFilterQuantificationProcessor::processEmptyCells(bool &isComplete)
 		checkLimit();
 	} else { // QuantificationPlanNode::ANY_NUM and ANY_STR
 		if (zeroCond) {
+			bool isComplete = false;
 			for (Set::Iterator fit = filteredSet->begin(); fit != filteredSet->end(); ++fit) {
 				IdentifierType id = *fit;
+				getCounts(dim, id, numCellCount, strCellCount);
 
 				set<IdentifierType>::iterator sit = subset.find(id);
 				if (sit == subset.end()) {
-					//if is there at least one #N/A add 'id' to 'subset'
-					map<IdentifierType, double>::iterator mit = counterFalse.find(id);
-					if (mit == counterFalse.end() || mit->second < (quantType == QuantificationPlanNode::ANY_STR ? strCellsPerElement : numCellsPerElement)) {
-						insertId(id, quantType == QuantificationPlanNode::ANY_NUM ? CellValue::NullNumeric : CellValue::NullString, isComplete);
-						if (isComplete) {
-							break;
+					if (quantType == QuantificationPlanNode::ANY_NUM) {
+						if (numCellCount) {
+							map<IdentifierType, double>::iterator mit = counterNumFalse.find(id);
+							if (mit == counterNumFalse.end() || mit->second < numCellCount) {
+								// if there is at least one numeric #N/A there add 'id' to 'subset'
+								insertId(id, CellValue::NullNumeric, isComplete);
+							}
 						}
+					} else { // QuantificationPlanNode::ANY_STR
+						if (strCellCount) {
+							map<IdentifierType, double>::iterator mit = counterStrFalse.find(id);
+							if (mit == counterStrFalse.end() || mit->second < strCellCount) {
+								// if there is at least one string #N/A there add 'id' to 'subset'
+								insertId(id, CellValue::NullString, isComplete);
+							}
+						}
+					}
+					if (isComplete) {
+						break;
 					}
 				}
 			}
@@ -276,13 +349,13 @@ void DFilterQuantificationProcessor::processEmptyCells(bool &isComplete)
 	}
 }
 
-bool DFilterQuantificationProcessor::checkValue(IdentifierType id, const CellValue &value, bool &isComplete)
+bool DFilterQuantificationProcessor::checkValue(IdentifierType id, const CellValue &value, bool &isComplete, bool isNumeric)
 {
 	bool changed = false;
 	if (quantType == QuantificationPlanNode::ALL) {
 		if (subset.find(id) != subset.end()) {
-			bool cond = condition->check(value);
-			increaseCounter(id, cond);
+			bool cond = value.isNumeric() && condition->check(value);
+			increaseCounter(id, cond, isNumeric);
 			if (cond) {
 				values.insert(make_pair(id, value));
 			} else {
@@ -295,8 +368,12 @@ bool DFilterQuantificationProcessor::checkValue(IdentifierType id, const CellVal
 	} else {
 		bool cond = false;
 		if (quantType == QuantificationPlanNode::ANY_NUM || quantType == QuantificationPlanNode::ANY_STR) {
-			cond = condition->check(value);
-			increaseCounter(id, cond);
+			if (quantType == QuantificationPlanNode::ANY_NUM) {
+				cond = value.isNumeric() && condition->check(value);
+			} else {
+				cond = value.isString() && condition->check(value);
+			}
+			increaseCounter(id, cond, isNumeric);
 		}
 		if (subset.find(id) == subset.end()) {
 			if (quantType == QuantificationPlanNode::EXISTENCE || cond) {
@@ -316,33 +393,15 @@ void DFilterQuantificationProcessor::insertId(IdentifierType id, const CellValue
 	isComplete = subset.size() == filteredDimSize;
 }
 
-void DFilterQuantificationProcessor::increaseCounter(IdentifierType id, bool cond)
+void DFilterQuantificationProcessor::increaseCounter(IdentifierType id, bool cond, bool isNumeric)
 {
-	map<IdentifierType, double> &counter = cond ? counterTrue : counterFalse;
+	map<IdentifierType, double> &counter = isNumeric ? (cond ? counterNumTrue : counterNumFalse) : (cond ? counterStrTrue : counterStrFalse);
 	map<IdentifierType, double>::iterator it = counter.find(id);
 	if (it == counter.end()) {
 		counter.insert(make_pair(id, 1.0));
 	} else {
 		it->second = it->second + 1.0;
 	}
-}
-
-CubeArea::CellType DFilterQuantificationProcessor::cellType() const
-{
-	CubeArea::CellType result = CubeArea::NONE;
-	switch (quantType) {
-	case QuantificationPlanNode::ALL:
-	case QuantificationPlanNode::ANY_NUM:
-		result = CubeArea::NUMERIC;
-		break;
-	case QuantificationPlanNode::ANY_STR:
-		result = CubeArea::BASE_STRING;
-		break;
-	case QuantificationPlanNode::EXISTENCE:
-		result = CubeArea::ALL;
-		break;
-	}
-	return result;
 }
 
 void DFilterQuantificationProcessor::checkLimit() const
@@ -419,6 +478,18 @@ bool DFilterQuantificationProcessor::matchingPlanNode(CalcNodeType calcType, Pla
 		return planType != SOURCE && planType != CACHE && planType != AGGREGATION;
 	}
 	return false;
+}
+
+void DFilterQuantificationProcessor::getCounts(Dimension *dim, IdentifierType elemId, double &numCellCount, double &strCellCount) const
+{
+	Element *elem = dim->lookupElement(elemId, false);
+	if (elem->getElementType() == Element::STRING) {
+		numCellCount = 0;
+		strCellCount = numCellsPerElement + strCellsPerElement;
+	} else {
+		numCellCount = numCellsPerElement;
+		strCellCount = strCellsPerElement;
+	}
 }
 
 }

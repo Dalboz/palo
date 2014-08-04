@@ -7,11 +7,19 @@
 
 @param database
 @param_type identifier
-@param_description Identifier of a database
+@param_description Identifier of the database
  
+@param name_database
+@param_type string
+@param_description Name of the database. Used only if database parameter is omitted.
+
 @param dimension
 @param_type identifier
-@param_description Identifier of a dimension
+@param_description Identifier of the dimension
+
+@param name_dimension
+@param_type string
+@param_description Name of the dimension. Used only if dimension parameter is omitted.
  
 @param new_name
 @param_type string
@@ -25,10 +33,13 @@
 @param_type identifier
 @param_description Comma separated list of children identifiers. (Only for type=4)
 
+@param name_children
+@param_type string
+@param_description Comma separated list of children names. Used only if children parameter is omitted. (Only for type=4)
+
 @param weights
 @param_type double
-@param_description Optional comma separated list of children
-weights. (defaults to weight=1 for each child) (Only for type=4)
+@param_description Optional comma separated list of children weights. (defaults to weight=1 for each child) (Only for type=4)
  
 @param sid
 @param_type string

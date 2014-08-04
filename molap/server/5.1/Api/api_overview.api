@@ -1,3 +1,11 @@
+@server                     /server/activate_license
+@server_description         Activates license.
+@server_token               server
+
+@server                     /server/change_password
+@server_description         Changes user's password.
+@server_token               server
+
 @server                     /server/databases
 @server_description         Shows the list of databases.
 @server_token               server
@@ -30,26 +38,18 @@
 @server_description         Shuts down server (does not save database or cube data).
 @server_token               -
 
-@server                     /server/change_password
-@server_description         Changes user's password.
-@server_token               server
-
 @server                     /server/user_info
 @server_description         Shows information about user.
 @server_token               server
 
-@server                     /server/activate_license
-@server_description         Activates license.
-@server_token               server
 
-
-
-@database                   /database/cubes
-@database_description       Shows the list of cubes
-@database_token             database
 
 @database                   /database/create
 @database_description       Creates new database.
+@database_token             database
+
+@database                   /database/cubes
+@database_description       Shows the list of cubes
 @database_token             database
 
 @database                   /database/destroy
@@ -98,6 +98,10 @@
 @dimension_description      Deletes a dimension.
 @dimension_token            database
 
+@dimension                  /dimension/dfilter
+@dimension_description      Filters dimension elements.
+@dimension_token            dimension
+
 @dimension                  /dimension/element
 @dimension_description      Shows one element at a given position
 @dimension_token            dimension
@@ -112,10 +116,6 @@
 
 @dimension                  /dimension/rename
 @dimension_description      Renames a dimension.
-@dimension_token            dimension
-
-@dimension                  /dimension/dfilter
-@dimension_description      Filters dimension elements.
 @dimension_token            dimension
 
 
@@ -168,16 +168,20 @@
 @cube_description           Clears a cube.
 @cube_token                 cube, client cache
 
+@cube                       /cube/clear_cache
+@cube_description           Clears a cube cache.
+@cube_token                 cube
+
 @cube                       /cube/commit
 @cube_description           Commits a locked cube area.
 @cube_token                 cube
 
-@cube                       /cube/create 
-@cube_description           Creates a new cube.
-@cube_token                 cube, client cache
-
 @cube                       /cube/convert 
 @cube_description           Convert cube
+@cube_token                 cube, client cache
+
+@cube                       /cube/create 
+@cube_description           Creates a new cube.
 @cube_token                 cube, client cache
 
 @cube                       /cube/destroy

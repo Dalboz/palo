@@ -139,7 +139,7 @@ public:
 			try {
 				if (User::checkUser(user)) {
 					User::RightSetting rs(User::checkCellDataRightCube(database, cube));
-					cube->checkAreaAccessRight(database, user, sourceArea, rs, false, RIGHT_READ);
+					cube->checkAreaAccessRight(database, user, sourceArea, rs, false, RIGHT_READ, 0);
 				}
 			} catch (ErrorException &e) {
 				CellValue c(e.getErrorType());

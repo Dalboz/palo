@@ -84,6 +84,13 @@ public:
 			findDatabase(true, true);
 			findDimension(true);
 
+			PJournalMem journal = database->getJournal();
+			if (journal) {
+				journal->appendCommand(server->getUsername(user), server->getEvent(), JournalFileReader::JOURNAL_ELEMENTS_BULK_START);
+				journal->appendInteger(dimension->getId());
+				journal->nextLine();
+			}
+
 			ElementsType createdElems;
 			if (jobRequest->types != 0) {
 				computeMultipleType(createdElems);
@@ -91,6 +98,12 @@ public:
 				computeSingleType(createdElems);
 			}
 			dimension->updateElementsInfo();
+
+			if (journal) {
+				journal->appendCommand(server->getUsername(user), server->getEvent(), JournalFileReader::JOURNAL_ELEMENTS_BULK_STOP);
+				journal->appendInteger(dimension->getId());
+				journal->nextLine();
+			}
 
 			if (!session->isWorker()) {
 				for (ElementsType::iterator it = createdElems.begin(); it != createdElems.end(); ++it) {

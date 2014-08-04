@@ -861,6 +861,11 @@ ErrorException::ErrorException(ErrorType type, const string& message, uint32_t r
 {
 }
 
+ErrorException::ErrorException(ErrorType type, const string& message, const string& details, uint32_t ruleId) :
+	type(type), message(message), details(details), ruleId(ruleId)
+{
+}
+
 ErrorException::~ErrorException()
 {
 }

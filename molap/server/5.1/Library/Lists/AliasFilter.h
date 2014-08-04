@@ -64,7 +64,7 @@ public:
 
 private:
 	void applySettings();
-	bool check(const CellValue &val, IdentifierType attrId);
+	set<int> check(const CellValue &val, IdentifierType attrId);
 	AliasFilterSettings &m_settings;
 	FieldFilterSettings &m_fs;
 	IdentifierType m_attr1_coord;

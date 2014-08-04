@@ -6,11 +6,19 @@
     
 @param database
 @param_type identifier
-@param_description Identifier of a database
+@param_description Identifier of the database
+ 
+@param name_database
+@param_type string
+@param_description Name of the database. Used only if database parameter is omitted.
  
 @param cube
 @param_type identifier
-@param_description Identifier of a cube
+@param_description Identifier of the cube
+
+@param name_cube
+@param_type string
+@param_description Name of the cube. Used only if cube parameter is omitted.
 
 @param function
 @param_type integer
@@ -20,6 +28,10 @@
 @param_type path
 @param_description Source cell path used for copy (function=0). Comma separated list of element identifiers.
 
+@param name_path
+@param_type npath
+@param_description Source cell path used for copy (function=0). Comma separated list of element names. Used only if path parameter is omitted.
+
 @param area
 @param_type area
 @param_description Source area used for the predictive function (function=1). Comma separated list of element identifiers list. Each element identifiers list is colon separated, only one list can contain multiple elements. The area is the cartesian product.
@@ -27,6 +39,10 @@
 @param path_to
 @param_type path
 @param_description Target cell path. Comma separated list of element identifiers. 
+
+@param name_path_to
+@param_type npath
+@param_description Target cell path. Comma separated list of element names. Used only if path_to parameter is omitted. 
  
 @param use_rules
 @param_type boolean
@@ -38,7 +54,7 @@
 
 @param locked_paths
 @param_type path
-@param_description Optional colon separated list of paths. Each path is comma separated list of element identifier. Splashing will not change locked paths and sources areas of these paths if they are consolidated.
+@param_description Optional colon separated list of paths. Each path is a comma separated list of element identifiers. Splashing will not change locked paths and sources areas of these paths if they are consolidated.
  
 @param sid
 @param_type string

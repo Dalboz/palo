@@ -344,20 +344,17 @@ public:
 	enum QuantificationType {
 		ALL = 0, ANY_NUM, ANY_STR, EXISTENCE
 	};
-	QuantificationPlanNode(PCubeArea dfArea, const vector<PPlanNode> &children, QuantificationType quantType, PCondition cond, int dimIndex, bool isVirt, double numCellsPerElement, double strCellsPerElement, bool calcRules, uint64_t maxCount = 0);
-#ifdef ENABLE_GPU_SERVER
-	QuantificationPlanNode(PCubeArea dfArea, const vector<PPlanNode> &children, QuantificationType quantType, PCondition cond, int dimIndex, bool isVirt, double numCellsPerElement, double strCellsPerElement, bool calcRules, CPAggregationMaps aggregationMaps, uint64_t maxCount = 0);
-#endif
-	QuantificationPlanNode(PCubeArea dfArea, const vector<PPlanNode> &children, int dimIndex, bool isVirt, bool calcRules, uint64_t maxCount = 0);
+	QuantificationPlanNode(PCubeArea dfArea, CPCubeArea numericArea, const vector<PPlanNode> &children, QuantificationType quantType, PCondition cond, int dimIndex, bool isVirt, double cellsPerElement, bool calcRules, uint64_t maxCount);
+	QuantificationPlanNode(PCubeArea dfArea, const vector<PPlanNode> &children, int dimIndex, bool isVirt, bool calcRules, uint64_t maxCount);
 	virtual ~QuantificationPlanNode() {}
+	CPCubeArea getNumericArea() const {return numericArea;}
 	QuantificationType getQuantificationType() const {return quantType;}
 	string getQuantificationTypeString(bool code = false) const;
 	uint64_t getMaxCount () const {return maxCount;}
 	CPCondition getCondition() const {return cond;}
 	int getDimIndex() const {return dimIndex;}
 	bool isVirtual() const {return isVirt;}
-	double getNumCellCount() const {return numCellsPerElement;}
-	double getStrCellCount() const {return strCellsPerElement;}
+	double getCellCount() const {return cellsPerElement;}
 	bool getCalcRules() const {return calcRules;}
 	PCubeArea getFilteredArea() const {return dfArea;}
 
@@ -368,13 +365,13 @@ public:
 private:
 	virtual string getXMLAttributes() const;
 	virtual string getXMLContent() const;
-	PCubeArea dfArea;
+	PCubeArea dfArea; // the whole area
+	CPCubeArea numericArea; // only numeric cells
 	QuantificationType quantType;
 	CPCondition cond;
 	int dimIndex;
 	bool isVirt;
-	double numCellsPerElement;
-	double strCellsPerElement;
+	double cellsPerElement;
 	bool calcRules;
 	uint64_t maxCount;
 

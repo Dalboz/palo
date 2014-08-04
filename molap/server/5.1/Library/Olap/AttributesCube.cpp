@@ -53,8 +53,11 @@ PCommitable AttributesCube::copy() const
 	return newd;
 }
 
-void AttributesCube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight) const
+void AttributesCube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight, bool *defaultUsed) const
 {
+	if (defaultUsed) {
+		*defaultUsed = false;
+	}
 	if (User::checkUser(user)) {
 		if (rightObject == User::elementRight && minimumRight == RIGHT_SPLASH) {
 			// attribute cube of dimension, S is not valid right
@@ -75,6 +78,9 @@ void AttributesCube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea 
 		}
 
 		if (enough && rtDims.first == RIGHT_EMPTY) {
+			if (defaultUsed) {
+				*defaultUsed = true;
+			}
 			enough = db->getDefaultRight() >= minimumRight;
 		}
 		if (enough) {
@@ -90,7 +96,7 @@ void AttributesCube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea 
 				enough = user->checkDatabaseDataRight(db, userGroups, minimumRight);
 			}
 			if (enough) {
-				enough = user->checkDimsAndCells(db, cube, userGroups, area, false, minimumRight);
+				enough = user->checkDimsAndCells(db, cube, userGroups, area, false, minimumRight, defaultUsed);
 			}
 		}
 		if (!enough) {

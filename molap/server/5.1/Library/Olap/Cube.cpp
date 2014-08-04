@@ -421,7 +421,8 @@ bool Cube::loadCubeCells(FileReader *fr, PDatabase db, bool checkAlias, bool bin
 		if (binary) {
 			StorageCpu *st;
 			if (fr->isSectionLine() && fr->getSection() == NUMERIC_SECTION) {
-				st = dynamic_cast<StorageCpu *>(cpuEngine->getStorage(numericStorageId).get());
+				PStorageBase numericCpuStorage = cpuEngine->getCreateStorage(numericStorageId, pathTranslator, EngineBase::Numeric);
+				st = dynamic_cast<StorageCpu *>(numericCpuStorage.get());
 				st->load(fr, fileVersion);
 				fr->nextLine();
 
@@ -432,7 +433,8 @@ bool Cube::loadCubeCells(FileReader *fr, PDatabase db, bool checkAlias, bool bin
 				}
 			}
 			if (ret && fr->isSectionLine() && fr->getSection() == STRING_SECTION) {
-				st = dynamic_cast<StorageCpu *>(cpuEngine->getStorage(stringStorageId).get());
+				PStorageBase stringStorage = cpuEngine->getCreateStorage(stringStorageId, pathTranslator, EngineBase::String);
+				st = dynamic_cast<StorageCpu *>(stringStorage.get());
 				st->load(fr, fileVersion);
 			} else {
 				ret = false;
@@ -1554,7 +1556,7 @@ void Cube::clearCells(PServer server, PDatabase db, PCubeArea areaElements, PUse
 
 		if ((getType() == SYSTEMTYPE && getCubeType() != Cube::ATTRIBUTES) || cube->getType() == USER_INFOTYPE) {
 			User::RightSetting rs;
-			checkAreaAccessRight(db, user, areaElements, rs, true, minimumRight);
+			checkAreaAccessRight(db, user, areaElements, rs, true, minimumRight, 0);
 		} else {
 			User::MinMaxRight rtRole = user->getRoleCellDataRight();
 			bool enough = rtRole.second >= minimumRight;
@@ -1629,7 +1631,7 @@ void Cube::clearCells(PServer server, PDatabase db, PCubeArea areaElements, PUse
 						}
 					}
 
-					enough = user->checkDimsAndCells(db, cube, userGroups, rootArea, checkCells, minimumRight);
+					enough = user->checkDimsAndCells(db, cube, userGroups, rootArea, checkCells, minimumRight, 0);
 				}
 			}
 			if (!enough) {
@@ -1826,7 +1828,7 @@ bool Cube::copyCellValuesPrepare(PServer server, PDatabase db, PCubeArea cellPat
 
 	if (!factorFromJournal && !dValue) {
 		User::RightSetting rs(User::checkCellDataRightCube(db, CONST_COMMITABLE_CAST(Cube, shared_from_this())));
-		checkAreaAccessRight(db, user, cellPathTo, rs, cellValue.isEmpty(), RIGHT_SPLASH);
+		checkAreaAccessRight(db, user, cellPathTo, rs, cellValue.isEmpty(), RIGHT_SPLASH, 0);
 	}
 
 	if (dValue && cellValue.isEmpty()) { // dValue != NULL means 'like' which is not allowed when the source cell is 0
@@ -1917,7 +1919,7 @@ bool Cube::copyCells(PServer server, PDatabase db, PCubeArea cellPathFrom, PCube
 	PPlanNode sourcePlan = createPlan(areaSrc, CubeArea::NUMERIC, bUseRules ? RulesType(ALL_RULES | NO_RULE_IDS) : NO_RULES, true, UNLIMITED_UNSORTED_PLAN);
 	if (User::checkUser(user)) {
 		User::RightSetting rs(User::checkCellDataRightCube(db, cube));
-		checkAreaAccessRight(db, user, areaSrc, rs, false, RIGHT_READ);
+		checkAreaAccessRight(db, user, areaSrc, rs, false, RIGHT_READ, 0);
 	}
 
 	simpleCase &= sourcePlan->getType() == SOURCE;
@@ -1990,7 +1992,12 @@ bool Cube::copyCells(PServer server, PDatabase db, PCubeArea cellPathFrom, PCube
 		}
 
 		PCellStream changedValues = dynamic_cast<ICellMapStream *>(spFinalTargetBatch.get())->getValues();
+		size_t counter = 0;
+		Context *con = Context::getContext();
 		while (changedValues->next()) {
+			if (++counter % 10000) {
+				con->check();
+			}
 			setCellValue(server, db, PCubeArea(new CubeArea(db, cube, changedValues->getKey())), CellValue(changedValues->getDouble()), lockedCells, PUser(), boost::shared_ptr<PaloSession>(), false, false, DEFAULT, false, 0, changedCubes, false, CubeArea::NONE);
 		}
 	}
@@ -2110,7 +2117,7 @@ ResultStatus Cube::setCellValue(PServer server, PDatabase db, PCubeArea spCellPa
 			checkRights->checkSepRight = false;
 		}
 		bool isEmpty = value.isEmpty();
-		checkAreaAccessRight(db, user, spCellPath, *checkRights, isEmpty, isAggregation ? RIGHT_SPLASH : (isEmpty ? RIGHT_DELETE : RIGHT_WRITE));
+		checkAreaAccessRight(db, user, spCellPath, *checkRights, isEmpty, isAggregation ? RIGHT_SPLASH : (isEmpty ? RIGHT_DELETE : RIGHT_WRITE), 0);
 	}
 
 	// use the supervision event processor (SEP)
@@ -2859,7 +2866,7 @@ void Cube::cellGoalSeek(PServer server, PDatabase db, CellValueContext::GoalSeek
 
 			if (res.valid) {
 				// ignore rules, skip empty cells
-				checkAreaAccessRight(db, user, area, rs, false, RIGHT_SPLASH);
+				checkAreaAccessRight(db, user, area, rs, false, RIGHT_SPLASH, 0);
 				cs = calculateArea(area, CubeArea::NUMERIC, NO_RULES, false, 0);
 
 				set<PCube> changedCubes;
@@ -2928,7 +2935,7 @@ void Cube::cellGoalSeekEqualRelative(PServer server, PDatabase db, PCubeArea cel
 		}
 		area->insert(i, s);
 
-		checkAreaAccessRight(db, user, area, rs, false, RIGHT_SPLASH);
+		checkAreaAccessRight(db, user, area, rs, false, RIGHT_SPLASH, 0);
 
 		PPlanNode plan = createPlan(area, CubeArea::ALL, NO_RULES, false, UNLIMITED_UNSORTED_PLAN);
 		PCellStream cs = evaluatePlan(plan, EngineBase::ANY, true);
@@ -3106,9 +3113,8 @@ bool Cube::activateRules(PServer server, PDatabase db, const vector<PRule> &rule
 		this->rules = COMMITABLE_CAST(RuleList, this->rules->copy());
 	}
 	for (vector<PRule>::const_iterator ruleIt = rules.begin(); ruleIt != rules.end(); ++ruleIt) {
-		PRule rule;
+		PRule rule = *ruleIt;
 
-		rule = *ruleIt;
 		if ((activation == INACTIVE && !rule->isActive()) || (activation == ACTIVE && rule->isActive())) {
 			if (bDefinitionChangedBefore) {
 				Logger::debug << "updated rule on cube " << this->getId() << " with id " << rule->getId() << ": "
@@ -3117,9 +3123,7 @@ bool Cube::activateRules(PServer server, PDatabase db, const vector<PRule> &rule
 			continue; // nothing to do
 		}
 
-		if ((*ruleIt)->isCheckedOut()) {
-			rule = *ruleIt;
-		} else {
+		if (!(*ruleIt)->isCheckedOut()) {
 			rule = COMMITABLE_CAST(Rule, (*ruleIt)->copy());
 			this->rules->set(rule);
 		}
@@ -3321,10 +3325,10 @@ bool Cube::deleteElements(PServer server, PDatabase db, PUser user, const string
 				if (rule->isActive() && rule->hasElement(dimension, elemId)) {
 					string errMsg;
 					activateRules(server, db, vector<PRule>(1,rule), INACTIVE, PUser(), NULL, false, false);
-					vDisabledRules.push_back(rule);
+					vDisabledRules.push_back(COMMITABLE_CAST(Rule, rules->get(rule->getId(), true)));
 				}
 			}
-			if (disabledRules) {
+			if (disabledRules && vDisabledRules.size()) {
 				disabledRules->push_back(pair<PCube, vector<PRule> >(COMMITABLE_CAST(Cube, shared_from_this()), vDisabledRules));
 			}
 		}
@@ -3372,10 +3376,13 @@ bool Cube::deleteElements(PServer server, PDatabase db, PUser user, const string
 	return dimFound;
 }
 
-void Cube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight) const
+void Cube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight, bool *defaultUsed) const
 {
+	if (defaultUsed) {
+		*defaultUsed = false;
+	}
 	if (User::checkUser(user)) {
-		user->checkAreaRightsComplete(db, CONST_COMMITABLE_CAST(Cube, shared_from_this()), area, rs, isZero, minimumRight);
+		user->checkAreaRightsComplete(db, CONST_COMMITABLE_CAST(Cube, shared_from_this()), area, rs, isZero, minimumRight, defaultUsed);
 	}
 }
 
@@ -3535,6 +3542,9 @@ bool Cube::isInArea(const IdentifierType *cellPath, const Area *area)
 PCube Cube::addCubeToDatabase(PServer server, dbID_cubeID db_cube)
 {
 	PDatabase db = server->lookupDatabase(db_cube.first, true);
+	if (!db) {
+		return PCube();
+	}
 	PDatabaseList dbs = server->getDatabaseList(true);
 	server->setDatabaseList(dbs);
 	dbs->set(db);

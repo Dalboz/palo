@@ -30,15 +30,27 @@ the first parent of an element is taken into account.
 
 @param database
 @param_type identifier
-@param_description Identifier of a database
+@param_description Identifier of the database
  
+@param name_database
+@param_type string
+@param_description Name of the database. Used only if database parameter is omitted.
+
 @param dimension
 @param_type identifier
-@param_description Identifier of a dimension
+@param_description Identifier of the dimension
+
+@param name_dimension
+@param_type string
+@param_description Name of the dimension. Used only if dimension parameter is omitted.
  
 @param element
 @param_type identifier
-@param_description Identifier of an element
+@param_description Identifier of the element
+
+@param name_element
+@param_type string
+@param_description Name of the element. Used only if element parameter is omitted.
 
 @param show_permission
 @param_type boolean

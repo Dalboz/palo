@@ -60,7 +60,7 @@ public:
 	class LoggerStream {
 	public:
 		LoggerStream(ostream& output) :
-			on(true), output(&output) {
+			on(true), output(&output), duplicateToStdout(false) {
 		}
 
 	public:
@@ -69,6 +69,9 @@ public:
 			WriteLocker w(&m);
 			if (on) {
 				(*output) << value;
+				if (duplicateToStdout) {
+					cout << value;
+				}
 				output->flush();
 			}
 			return *this;
@@ -80,6 +83,9 @@ public:
 			WriteLocker w(&m);
 			if (on) {
 				(*output) << (unsigned int) value;
+				if (duplicateToStdout) {
+					cout << (unsigned int) value;
+				}
 			}
 			return *this;
 		}
@@ -99,6 +105,9 @@ public:
 			WriteLocker w(&m);
 			if (on) {
 				fptr((*output));
+				if (duplicateToStdout) {
+					fptr(cout);
+				}
 				output->flush();
 			}
 			return *this;
@@ -114,15 +123,17 @@ public:
 			on = false;
 		}
 
-		void setStream(ostream& os) {
+		void setStream(ostream& os, bool duplicateToStdout) {
 			WriteLocker w(&m);
 			output = &os;
+			this->duplicateToStdout = duplicateToStdout;
 		}
 
 	private:
 		Mutex m;
 		bool on;
 		ostream* output;
+		bool duplicateToStdout;
 	};
 
 private:
@@ -142,6 +153,9 @@ private:
 				char* s = new char[max];
 				strftime(s, max, "%Y-%m-%d %H:%M:%S ", t);
 				stream << s;
+				/*if (duplicateToStdout) {
+					cout << s;
+				}*/
 				delete[] s;
 #endif
 #ifdef PALO_HMMM_FINER_LOGGING
@@ -152,6 +166,9 @@ private:
 
 				stream << prefix << ": ";
 				stream << value;
+				/*if (duplicateToStdout) {
+					cout << prefix << ": " << value;
+				}*/
 				logger.linesCount++;
 			}
 
@@ -172,14 +189,16 @@ private:
 			return on;
 		}
 
-		void setStream(ostream& os) {
-			stream.setStream(os);
+		void setStream(ostream& os, bool duplicateToStdout) {
+			this->duplicateToStdout = duplicateToStdout;
+			stream.setStream(os, duplicateToStdout);
 		}
 
 	private:
 		bool on;
 		const string prefix;
 		LoggerStream stream;
+		bool duplicateToStdout;
 	};
 
 public:
@@ -196,7 +215,7 @@ public:
 	/// "-" means stdout, "+" means stderr
 	////////////////////////////////////////////////////////////////////////////////
 
-	static void setLogFile(const string& file);
+	static void setLogFile(const string& file, bool duplicateToStdout);
 
 	////////////////////////////////////////////////////////////////////////////////
 	/// @brief retrieves the log file

@@ -59,7 +59,7 @@ public:
 
 	virtual PCommitable copy() const;
 
-	virtual void checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight) const;
+	virtual void checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight, bool *defaultUsed) const;
 	virtual RightsType getMinimumAccessRight(CPUser user) const;
 	virtual void checkCubeAccessRight(PUser user, RightsType minimumRight, bool checkGroupCubeData, bool checkCubeRightObject) const;
 	virtual RightsType getCubeAccessRight(CPUser user) const;

@@ -81,7 +81,7 @@ void TextFilter::findRegexInAlias(const boost::regex& rx)
 	SubSet::Iterator it = m_subset_ref.begin(true);
 	for (match_vec_type::size_type idx = 0; !it.end(); ++it, ++idx) {
 		if (!m_matches[idx]) {
-			if (boost::regex_search(it.getSearchAlias(), rx)) {
+			if (boost::regex_search(it.getSearchAlias(true), rx)) {
 				m_matches[idx] = true;
 			}
 		}

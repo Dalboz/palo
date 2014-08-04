@@ -262,6 +262,7 @@ void PaloHttpServer::addDocumentationHandlers(const string& tmpl)
 	addHandler("/api/dimension/dfilter", new DocumentationHandler(d1, templateDirectory + "/dimension_dfilter.api"));
 
 	addHandler("/api/cube/clear", new DocumentationHandler(d1, templateDirectory + "/cube_clear.api"));
+	addHandler("/api/cube/clear_cache", new DocumentationHandler(d1, templateDirectory + "/cube_clear_cache.api"));
 	addHandler("/api/cube/commit", new DocumentationHandler(d1, templateDirectory + "/cube_commit.api"));
 	addHandler("/api/cube/create", new DocumentationHandler(d1, templateDirectory + "/cube_create.api"));
 	addHandler("/api/cube/convert", new DocumentationHandler(d1, templateDirectory + "/cube_convert.api"));

@@ -141,7 +141,7 @@ void LegacyRule::generateSources()
 							try {
 								if (User::checkUser(user)) {
 									User::RightSetting rs(User::checkCellDataRightCube(sourceDb, sourceCube));
-									cube->checkAreaAccessRight(sourceDb, user, sourceCubeArea, rs, false, RIGHT_READ);
+									cube->checkAreaAccessRight(sourceDb, user, sourceCubeArea, rs, false, RIGHT_READ, 0);
 								}
 							} catch (ErrorException &) {
 								skip = true;
@@ -204,7 +204,7 @@ void LegacyRule::generateSources()
 			try {
 				if (User::checkUser(user)) {
 					User::RightSetting rs(User::checkCellDataRightCube(db, cube));
-					cube->checkAreaAccessRight(db, user, sourceCubeAreas[source], rs, false, RIGHT_READ);
+					cube->checkAreaAccessRight(db, user, sourceCubeAreas[source], rs, false, RIGHT_READ, 0);
 				}
 			} catch (ErrorException &e) {
 				CellValue c(e.getErrorType());

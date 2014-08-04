@@ -60,7 +60,7 @@ public:
 	virtual PCommitable copy() const;
 	virtual bool merge(const CPCommitable &o, const PCommitable &p);
 
-	virtual void checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight) const;
+	virtual void checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight, bool *defaultUsed) const;
 	virtual RightsType getCubeAccessRight(CPUser user) const;
 
 private:

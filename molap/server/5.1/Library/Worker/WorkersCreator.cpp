@@ -155,7 +155,12 @@ void WorkersCreator::startAll(bool startup)
 	server->setSvsStopped(false);
 
 	if (startup) {
-		Context::getContext()->getServer()->afterLoad();
+		try {
+			Context::getContext()->getServer()->afterLoad();
+		} catch (...) {
+			Logger::error << "stop request before initialization completed" << endl;
+			exit(1);
+		}
 		if (!server->commit()) {
 			Logger::warning << "Can't commit changes needed for workers." << endl;
 		}

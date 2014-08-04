@@ -29,15 +29,27 @@ ended with push_rule/end when used within a worker.
     
 @param database
 @param_type identifier
-@param_description Identifier of a database
+@param_description Identifier of the database
+ 
+@param name_database
+@param_type string
+@param_description Name of the database. Used only if database parameter is omitted.
  
 @param cube
 @param_type identifier
-@param_description Identifier of a cube
+@param_description Identifier of the cube
+
+@param name_cube
+@param_type string
+@param_description Name of the cube. Used only if cube parameter is omitted.
 
 @param paths
 @param_type path
-@param_description Colon separated list of paths. Each path is comma separated list of element identifier.
+@param_description Colon separated list of paths. Each path is a comma separated list of element identifiers.
+
+@param name_paths
+@param_type npath
+@param_description Colon separated list of paths. Each path is a comma separated list of element names. Used only if paths parameter is omitted.
  
 @param values
 @param_type double/string
@@ -54,7 +66,7 @@ separated list of elements contains consolidated elements.<br>(0=no splashing, 1
 
 @param locked_paths
 @param_type path
-@param_description Optional colon separated list of paths. Each path is comma separated list of element identifier. Splashing will not change locked paths and sources areas of these paths if they are consolidated.
+@param_description Optional colon separated list of paths. Each path is a comma separated list of element identifiers. Splashing will not change locked paths and sources areas of these paths if they are consolidated.
  
 @param event_processor
 @param_type boolean

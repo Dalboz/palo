@@ -195,7 +195,7 @@ string BrowserDocumentation::convertTypeToString(CPDimension dimension)
 		typeString = "Normal";
 		break;
 	case Dimension::RIGHTS:
-		typeString = "Rights";
+		typeString = "System";
 		break;
 	case Dimension::ALIAS:
 		typeString = "Alias";

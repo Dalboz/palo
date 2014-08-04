@@ -566,10 +566,13 @@ PositionType SubSet::Iterator::getPosition() const
 	return m_impl->getPosition();
 }
 
-CellValue SubSet::Iterator::getSearchAlias() const
+CellValue SubSet::Iterator::getSearchAlias(bool name) const
 {
-	CellValue c(m_impl->getName());
-	return m_impl->sub->getSearchAlias(m_impl->getId(), true, c);
+	CellValue c;
+	if (name) {
+		c = m_impl->getName();
+	}
+	return m_impl->sub->getSearchAlias(m_impl->getId(), c);
 }
 
 IdentifierType SubSet::Iterator::getConsOrder() const
@@ -597,31 +600,23 @@ SubSet::SubSet(PDatabase db, PDimension dim, PUser user, vector<BasicFilterSetti
 {
 }
 
-const CellValue &SubSet::getSearchAlias(IdentifierType id, bool nameForEmpty, const CellValue &def)
+const CellValue &SubSet::getSearchAlias(IdentifierType id, const CellValue &def)
 {
 	map<IdentifierType, CellValue>::iterator it = searchAlias.find(id);
 	if (it != searchAlias.end()) {
 		return it->second;
 	} else {
-		if (!nameForEmpty) {
-			return def;
-		} else {
-			return CellValue::NullString;
-		}
+		return def;
 	}
 }
 
-const CellValue &SubSet::getSortingAlias(IdentifierType id, bool nameForEmpty, const CellValue &def)
+const CellValue &SubSet::getSortingAlias(IdentifierType id, const CellValue &def)
 {
 	map<IdentifierType, CellValue>::iterator it = sortAlias.find(id);
 	if (it != sortAlias.end()) {
 		return it->second;
 	} else {
-		if (nameForEmpty) {
-			return def;
-		} else {
-			return CellValue::NullString;
-		}
+		return def;
 	}
 }
 
@@ -684,7 +679,7 @@ void SubSet::mergePicklist()
 		if (elemsMap.find(*it) == elemsMap.end()) {
 			elemsMap.insert(*it);
 		}
-		if (shrinked) {
+		if (shrinked || dim->getDimensionType() == Dimension::VIRTUAL) {
 			shrinkedList.push_back(*it);
 		}
 	}
@@ -822,27 +817,21 @@ size_t SubSet::size()
 PSet SubSet::getSet(bool incPick)
 {
 	PSet s(new Set());
-	if (final) {
-		for (vector<SubElem>::iterator it = finalList.begin(); it != finalList.end(); ++it) {
-			s->insert(it->elem->getIdentifier());
-		}
-	} else {
-		for (set<Element *>::iterator it = elemsMap.begin(); it != elemsMap.end(); ++it) {
+	for (Iterator it = begin(false); !it.end(); ++it) {
+		s->insert(it.getId());
+	}
+	if (!final && incPick) {
+		for (ElementsType::iterator it = pickBack.begin(); it != pickBack.end(); ++it) {
 			s->insert((*it)->getIdentifier());
 		}
-		if (incPick) {
-			for (ElementsType::iterator it = pickBack.begin(); it != pickBack.end(); ++it) {
-				s->insert((*it)->getIdentifier());
-			}
-			for (ElementsType::iterator it = pickFront.begin(); it != pickFront.end(); ++it) {
-				s->insert((*it)->getIdentifier());
-			}
-			for (ElementsType::iterator it = pickMerge.begin(); it != pickMerge.end(); ++it) {
-				s->insert((*it)->getIdentifier());
-			}
-			for (ElementsType::iterator it = pickBack.begin(); it != pickBack.end(); ++it) {
-				s->insert((*it)->getIdentifier());
-			}
+		for (ElementsType::iterator it = pickFront.begin(); it != pickFront.end(); ++it) {
+			s->insert((*it)->getIdentifier());
+		}
+		for (ElementsType::iterator it = pickMerge.begin(); it != pickMerge.end(); ++it) {
+			s->insert((*it)->getIdentifier());
+		}
+		for (ElementsType::iterator it = pickBack.begin(); it != pickBack.end(); ++it) {
+			s->insert((*it)->getIdentifier());
 		}
 	}
 	return s;

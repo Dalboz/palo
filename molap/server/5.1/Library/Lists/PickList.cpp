@@ -71,8 +71,12 @@ void PickList::buildElemlist(ElementsType &result)
 	PUser user = m_subset_ref.getUser();
 	for (vector<vector<string> >::iterator it = m_settings.manual_subset.begin(); it != m_settings.manual_subset.end(); ++it) {
 		//TODOMJ paths
-		Element *el = dim->findElementByName((*it)[0], user.get(), false);
-		result.push_back(el);
+		if (dim->getDimensionType() == Dimension::VIRTUAL) {
+			result.push_back((Element *)(size_t)StringUtils::stringToUnsignedInteger((*it)[0]));
+		} else {
+			Element *el = dim->findElementByName((*it)[0], user.get(), false);
+			result.push_back(el);
+		}
 	}
 }
 

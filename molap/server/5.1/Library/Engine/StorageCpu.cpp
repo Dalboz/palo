@@ -933,10 +933,14 @@ PStorageBase StorageCpuCommitWorker::start(StorageCpu::Processor oldDataReader, 
 		lockedChanges = PDoubleCellMap(new CellMapSync<double>(lockedChanges));
 	}
 	StorageFragments results;
-	PThreadPool tp = Context::getContext()->getServer()->getThreadPool();
+	Context *con = Context::getContext();
+	PThreadPool tp = con->getServer()->getThreadPool();
 	ThreadPool::ThreadGroup tg = tp->createThreadGroup();
 
 	while (hasNext) {
+		if (!con->check(false)) {
+			break;
+		}
 		ptime prepareStart = microsec_clock::local_time();
 
 		size_t bulkChanges = 0;
@@ -999,7 +1003,7 @@ PStorageBase StorageCpuCommitWorker::start(StorageCpu::Processor oldDataReader, 
 	}
 //	Logger::info << "total preparation time: " << prepareTime/1000 << " ms" << endl;
 	tp->join(tg);
-	tp->destroyThreadGroup(tg);
+	con->check();
 
 	if (results.storagesStartingWith.size() != 1) {
 		Logger::error << "parallel commit failed. Result storages: " << results.storagesStartingWith.size() << endl;
@@ -3378,13 +3382,17 @@ bool StorageCpu::Writer::movePages(Processor *p, const IdentifiersType *key)
 			ds.emptySpace += nops;
 		}
 
-//		if (ds.index2 && p->storage.index2 && !key && spos == currSize) {
 		if (ds.index2 && p->storage.index2 && ds.index2->empty() && !key && spos == currSize) {
-			// compare content of both indexes
-//			if (*ds.index2 != *p->storage.index2) {
-//				throw ErrorException(ErrorException::ERROR_INTERNAL, "StorageCpu::Writer::movePages index differs in unchanged(?) storage");
-//			}
-			ds.index2 = p->storage.index2;
+			if (spage == 0 && epage == p->storage.index2->size()) {
+				ds.index2 = p->storage.index2;
+			} else {
+				if (epage > spage) {
+					ds.index2->reserve(epage - spage);
+				}
+				for (uint32_t iPage = spage; iPage < epage; iPage++) {
+					ds.index2->push_back(p->storage.index2->at(iPage));
+				}
+			}
 		}
 
 		//////////////////////////////

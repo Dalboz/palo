@@ -57,8 +57,11 @@ void SystemCube::loadCube(PServer server, PDatabase db, bool processJournal)
 	loadCubeIntern(server, db, processJournal, false, true);
 }
 
-void SystemCube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight) const
+void SystemCube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight, bool *defaultUsed) const
 {
+	if (defaultUsed) {
+		*defaultUsed = false;
+	}
 	if (getCubeAccessRight(user) < minimumRight) {
 		throw ParameterException(ErrorException::ERROR_NOT_AUTHORIZED, "insufficient access rights", "user", (int)user->getId());
 	}

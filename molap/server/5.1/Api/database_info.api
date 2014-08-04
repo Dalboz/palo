@@ -10,6 +10,10 @@
 @param_type identifier
 @param_description Identifier of the database
 
+@param name_database
+@param_type string
+@param_description Name of the database. Used only if database parameter is omitted.
+
 @param show_permission
 @param_type boolean
 @param_description If 1 then additional information about the user's permission on database is returned (optional, default is 0)

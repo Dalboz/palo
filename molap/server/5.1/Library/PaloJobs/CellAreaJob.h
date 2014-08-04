@@ -137,7 +137,7 @@ public:
 		}
 		bool checkPermissions = cube->getMinimumAccessRight(user) == RIGHT_NONE;
 
-		double cellCount = fillEmptyDim(vRights, checkPermissions, *jobRequest->area, cube, database, user, 0, 0);
+		double cellCount = fillEmptyDim(vRights, checkPermissions, *jobRequest->area, cube, database, user);
 		if (cellCount > max_cell_count) {
 			throw ErrorException(ErrorException::ERROR_MAX_CELL_REACHED, "area too big");
 		}

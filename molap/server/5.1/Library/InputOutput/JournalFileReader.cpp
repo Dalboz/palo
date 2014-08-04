@@ -72,6 +72,8 @@ const string JournalFileReader::JOURNAL_ELEMENT_REMOVE_CHILDREN_NOT_IN = "REMOVE
 const string JournalFileReader::JOURNAL_ELEMENT_REMOVE_CHILDREN = "REMOVE_CHILDREN";
 const string JournalFileReader::JOURNAL_ELEMENT_RENAME = "RENAME_ELEMENT";
 const string JournalFileReader::JOURNAL_ELEMENT_REPLACE = "CHANGE_ELEMENT";
+const string JournalFileReader::JOURNAL_ELEMENTS_BULK_START = "ELEMENTS_BULK_START";
+const string JournalFileReader::JOURNAL_ELEMENTS_BULK_STOP = "ELEMENTS_BULK_STOP";
 
 // common
 const string JournalFileReader::JOURNAL_VERSION = "VERSION";

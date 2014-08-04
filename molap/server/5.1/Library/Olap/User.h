@@ -126,8 +126,8 @@ public:
 	MinMaxRight computeDRight(IdentifierType dbId, CPCube cube) const;
 	const DimRights *getDimRights(IdentifierType dbId, IdentifierType dimId) const;
 
-	bool checkDimsAndCells(CPDatabase db, CPCube cube, set<IdentifierType> &userGroups, CPCubeArea area, bool checkCells, RightsType requiredRight) const;
-	void checkAreaRightsComplete(CPDatabase db, CPCube cube, CPCubeArea area, RightSetting& rs, bool isZero, RightsType requiredRight) const;
+	bool checkDimsAndCells(CPDatabase db, CPCube cube, set<IdentifierType> &userGroups, CPCubeArea area, bool checkCells, RightsType requiredRight, bool *defaultUsed) const;
+	void checkAreaRightsComplete(CPDatabase db, CPCube cube, CPCubeArea area, RightSetting& rs, bool isZero, RightsType requiredRight, bool *defaultUsed) const;
 
 	bool checkElementRight(ElemRightsMap *erm, const IdentifiersType *userGroups, IdentifierType elemId, RightsType requiredRight) const;
 	bool checkElementRight(IdentifierType dbId, IdentifierType dimId, IdentifierType elemId, RightsType requiredRight) const;
@@ -135,7 +135,7 @@ public:
 	void fillRights(vector<RoleDbCubeRight> &vRights, RightObject object, CPDatabase db, CPCube cube) const;
 	void getDatabaseDataRight(vector<RoleDbCubeRight> &vRights, CPDatabase db) const;
 	RightsType getElementRight(IdentifierType dbId, IdentifierType dimId, IdentifierType elemId, vector<RoleDbCubeRight> &vRights, bool checkRole) const;
-	RightsType getCellRight(CPDatabase db, CPCube cube, const IdentifiersType &key, vector<RoleDbCubeRight> &vRights) const;
+	RightsType getCellRight(CPDatabase db, CPCube cube, const IdentifiersType &key, vector<RoleDbCubeRight> &vRights, bool *defaultUsed) const;
 
 	bool canLogin() const;
 	bool isExternalUser() const;

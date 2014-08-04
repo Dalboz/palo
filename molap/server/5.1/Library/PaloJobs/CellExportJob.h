@@ -142,7 +142,7 @@ public:
 		}
 		bool checkPermissions = cube->getMinimumAccessRight(user) == RIGHT_NONE;
 
-		fillEmptyDim(vRights, checkPermissions, *jobRequest->area, cube, database, user, 0, 0);
+		fillEmptyDim(vRights, checkPermissions, *jobRequest->area, cube, database, user);
 
 		CubeArea::CellType type = CubeArea::ALL;
 		if (jobRequest->baseOnly) {

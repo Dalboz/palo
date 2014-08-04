@@ -94,7 +94,7 @@ void CreateAxis::createAxis(size_t curr, bool check_limit)
 			} else {
 				job->appendElement(&body, it->first, it->second.getElement(), 0, false, vRights, it->second.getDepth(), it->second.getIndent());
 			}
-			body.appendCsvString(it->second.getSearchAlias().empty() ? "" : StringUtils::escapeString(it->second.getSearchAlias()));
+			body.appendCsvString(it->second.getSearchAlias(false).empty() ? "" : StringUtils::escapeString(it->second.getSearchAlias(false)));
 			body.appendCsvString(it->second.getPath());
 			body.appendEol();
 		}
@@ -120,7 +120,7 @@ void CreateAxis::createAxis(size_t curr, bool check_limit)
 				vector<PPlanNode> children;
 				children.push_back(plan);
 				int dimIndex = id2ord[it_sub->second.first->getId()];
-				plan.reset(new QuantificationPlanNode(curr_area, children, dimIndex, it_sub->second.first->getDimensionType() == Dimension::VIRTUAL, true));
+				plan.reset(new QuantificationPlanNode(curr_area, children, dimIndex, it_sub->second.first->getDimensionType() == Dimension::VIRTUAL, true, 0));
 				PCellStream cs = curr_area->getCube()->evaluatePlan(plan, EngineBase::ANY, true);
 				while (cs->next()) {
 					IdentifierType id = cs->getKey()[dimIndex];

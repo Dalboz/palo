@@ -7,15 +7,27 @@
 
 @param database
 @param_type identifier
-@param_description Identifier of a database
+@param_description Identifier of the database
+ 
+@param name_database
+@param_type string
+@param_description Name of the database. Used only if database parameter is omitted.
  
 @param cube
 @param_type identifier
-@param_description Identifier of a cube
+@param_description Identifier of the cube
+
+@param name_cube
+@param_type string
+@param_description Name of the cube. Used only if cube parameter is omitted.
 
 @param paths
 @param_type path
-@param_description Colon separated list of comma separated element identifiers
+@param_description Colon separated list of paths. Each path is a comma separated list of element identifiers.
+
+@param name_paths
+@param_type npath
+@param_description Colon separated list of paths. Each path is a comma separated list of element names. Used only if paths parameter is omitted.
  
 @param show_rule
 @param_type boolean

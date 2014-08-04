@@ -384,7 +384,7 @@ private:
 	void loadDatabaseCubes(PServer server, FileReader *file);
 
 	boost::shared_ptr<JournalFileReader> initJournalProcess();
-	vector<PCube> processJournalCommand(PServer server, JournalFileReader &history, bool &changed, FileReader *file, IdentifiersType &deletedDims);
+	vector<PCube> processJournalCommand(PServer server, JournalFileReader &history, bool &changed, FileReader *file, IdentifiersType &deletedDims, IdentifierType &bulkDimId, vector<vector<string> > &elementBulkCommands);
 
 	void saveDatabaseOverview(FileWriter *file);
 	void saveDatabaseDimensions(FileWriter *file);

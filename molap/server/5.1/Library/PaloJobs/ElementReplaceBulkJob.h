@@ -80,6 +80,13 @@ public:
 			findDatabase(true, true);
 			findDimension(true);
 
+			PJournalMem journal = database->getJournal();
+			if (journal) {
+				journal->appendCommand(server->getUsername(user), server->getEvent(), JournalFileReader::JOURNAL_ELEMENTS_BULK_START);
+				journal->appendInteger(dimension->getId());
+				journal->nextLine();
+			}
+
 			size_t elemcount = 0;
 			if (jobRequest->elements) {
 				elemcount = jobRequest->elements->size();
@@ -198,14 +205,15 @@ public:
 			}
 			dimension->updateElementsInfo();
 
+			if (journal) {
+				journal->appendCommand(server->getUsername(user), server->getEvent(), JournalFileReader::JOURNAL_ELEMENTS_BULK_STOP);
+				journal->appendInteger(dimension->getId());
+				journal->nextLine();
+			}
+
 			for (CubeRulesArray::iterator it = disabledRules.begin(); it != disabledRules.end(); it++) {
 				if (it->first) {
 					it->first->activateRules(server, database, it->second, ACTIVE, PUser(), NULL, false, false);
-//					for (vector<PRule>::iterator ruleIt = it->second.begin(); ruleIt != it->second.end(); ruleIt++) {
-//						if (!(*ruleIt)->isActive()) {
-//							it->first->activateRule(server, database, *ruleIt, true, PUser(), NULL, false, false);
-//						}
-//					}
 				}
 			}
 

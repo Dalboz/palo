@@ -100,8 +100,7 @@ public:
 				type = READ_JOB;
 			} else {
 				worker = server->getLoginWorker();
-
-				if (worker == 0) {
+				if (worker == 0) { // internal auth to be used, SVS turned off
 					type = READ_JOB;
 				} else {
 					checkToken(server);
@@ -154,7 +153,7 @@ public:
 			description = jobRequest->newName ? *jobRequest->newName : "";
 			string sudoName = "";
 
-			if (!ssoLogin) {
+			if (!ssoLogin || worker == 0) { // username required by auth type or ssoLogin active, but SVS turned off
 				// extract and check username
 				username = jobRequest->user;
 
@@ -462,7 +461,7 @@ private:
 		}
 
 		PUser user = sd->getExternalUser(*username);
-		checkEmptyUser(user, true, *username);
+		checkUser(user, true, false, *username);
 		if (!sudoName.empty()) {
 			// check user for sudo right
 			if (user->getRoleRight(User::sysOpRight) < RIGHT_WRITE) {

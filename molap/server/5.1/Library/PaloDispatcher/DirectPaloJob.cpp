@@ -116,9 +116,9 @@ void DirectPaloJob::work()
 
 void DirectPaloJob::handleException(ErrorException::ErrorType type, const string& message, const string& details)
 {
-
+	Context::getContext(0, false)->setSaveToCache(false);
 	if (ErrorException::ERROR_OUT_OF_MEMORY == type) {
-		Context::getContext()->freeEngineCube();
+		Context::getContext(0, false)->freeEngineCube();
 	}
 
 	response = new HttpResponse(HttpResponse::BAD);

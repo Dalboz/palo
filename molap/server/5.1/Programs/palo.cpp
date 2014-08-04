@@ -396,7 +396,7 @@ static int runPalo(int argc, char* argv[])
 
 		options.checkOptions();
 
-		Logger::setLogFile(options.logFile);
+		Logger::setLogFile(options.logFile, options.outputToStdout);
 		Logger::setLogLevel(options.logLevel);
 
 		// log version number

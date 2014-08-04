@@ -143,7 +143,7 @@ public:
 				} else if (jobRequest->childrenName != 0) {
 					if (jobRequest->childrenName->size() > 1) {
 						throw ParameterException(ErrorException::ERROR_PARAMETER_MISSING, "too many children", PaloRequestHandler::NAME_CHILDREN, "");
-					} else if (jobRequest->children->size() == 1) {
+					} else if (jobRequest->childrenName->size() == 1) {
 						vector<string>& childrenNames = jobRequest->childrenName->at(0);
 
 						if (weights && childrenNames.size() > weights->size()) {
@@ -195,11 +195,6 @@ public:
 			for (CubeRulesArray::iterator it = disabledRules.begin(); it != disabledRules.end(); it++) {
 				if (it->first) {
 					it->first->activateRules(server, database, it->second, ACTIVE, PUser(), NULL, false, false);
-//					for (vector<PRule>::iterator ruleIt = it->second.begin(); ruleIt != it->second.end(); ruleIt++) {
-//						if (!(*ruleIt)->isActive()) {
-//							it->first->activateRule(server, database, *ruleIt, true, PUser(), NULL, false, false);
-//						}
-//					}
 				}
 			}
 
