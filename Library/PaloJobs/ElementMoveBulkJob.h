@@ -88,21 +88,26 @@ public:
 				map<IdentifierType, PositionType> elemIds;
 				map<PositionType, IdentifierType> positions;
 				vector<pair<Element *, PositionType> > elem_pos;
-				if (!jobRequest->elements) {
+				if (!jobRequest->elements && !jobRequest->elementsName) {
 					throw ParameterException(ErrorException::ERROR_PARAMETER_MISSING, "missing elements", PaloRequestHandler::ID_ELEMENTS, "");
 				}
 				if (!jobRequest->positions) {
 					throw ParameterException(ErrorException::ERROR_PARAMETER_MISSING, "missing positions", PaloRequestHandler::POSITIONS, "");
 				}
 
-				size_t elemSize = jobRequest->elements->size();
+				size_t elemSize = jobRequest->elements ? jobRequest->elements->size() : jobRequest->elementsName->size();
 				if (elemSize != jobRequest->positions->size()) {
 					throw ErrorException(ErrorException::ERROR_PARAMETER_MISSING, "different number of elements and positions!");
 				}
 
 				elem_pos.reserve(elemSize);
 				for (size_t i = 0; i < elemSize; i++) {
-					Element *elem = dimension->findElement(jobRequest->elements->at(i), user.get(), true);
+					Element *elem;
+					if (jobRequest->elements) {
+						elem = dimension->findElement(jobRequest->elements->at(i), user.get(), true);
+					} else {
+						elem = dimension->findElementByName(jobRequest->elementsName->at(i), user.get(), true);
+					}
 					IdentifierType id = elem->getIdentifier();
 
 					PositionType pos = jobRequest->positions->at(i);
@@ -149,7 +154,7 @@ public:
 		}
 		server->invalidateCache();
 
-		generateElementResponse(dimension, element, false);
+		generateOkResponse(dimension);
 	}
 };
 

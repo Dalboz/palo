@@ -71,7 +71,7 @@ static string CSVencode(const string& val, const char delimeter = '\"')
 }
 
 DataFilter::DataFilter(SubSet& s, DataFilterSettings &settings) :
-	Filter(s, settings.flags, DATA_FILTER_NUMFLAGS), m_percentage1(0), m_percentage2(0), m_top_num(0), op(Condition::parseCondition("")), m_settings(settings)
+	Filter(s, settings.flags, DATA_FILTER_NUMFLAGS), m_percentage1(0), m_percentage2(0), m_top_num(0), op(Condition::parseCondition("")), pos(0), m_settings(settings)
 {
 	if (queryFlag(ONLY_LEAVES) && queryFlag(ONLY_CONSOLIDATED)) {
 		throw ErrorException(ErrorException::ERROR_INVALID_TYPE, "Wrong number of dimensions passed to set_coordinates");
@@ -115,23 +115,12 @@ ElementsType DataFilter::apply()
 
 	bool isAggrFunc;
 	int funcType = getFuncType(isAggrFunc);
-	vector<set<uint32_t> > numElemCount(dimCount);
 	bool isVirtual = false;
 	for (uint32_t i = 0; i < dimCount; ++i) {
 		CPDimension dim = database->lookupDimension((*dims)[i], false);
 		if (dim->getDimensionType() == Dimension::VIRTUAL) {
 			isVirtual = true;
-			continue;
-		}
-		if (i != pos) {
-			for (uint32_t j = 0; j < m_coords[i].size(); ++j) {
-				Element *elem = dim->findElement(m_coords[i].at(j), 0, false);
-				if (!isVirtual && !isAggrFunc) {
-					if (elem->getElementType() == Element::NUMERIC || elem->getElementType() == Element::CONSOLIDATED) {
-						numElemCount[i].insert(elem->getIdentifier());
-					}
-				}
-			}
+			break;
 		}
 	}
 	if (isVirtual && isAggrFunc) {
@@ -180,7 +169,7 @@ ElementsType DataFilter::apply()
 		user->fillRights(vRights, User::cellDataRight, database, m_source_cube);
 	}
 	bool checkPermissions = m_source_cube->getMinimumAccessRight(user) == RIGHT_NONE;
-	AreaJob::fillEmptyDim(vRights, checkPermissions, m_coords, m_source_cube, database, user, !isVirtual && !isAggrFunc ? &numElemCount : 0, pos);
+	AreaJob::fillEmptyDim(vRights, checkPermissions, m_coords, m_source_cube, database, user);
 
 	if (dimension->getDimensionType() == Dimension::VIRTUAL) {
 		if (queryFlag(ONLY_LEAVES)) {
@@ -217,9 +206,8 @@ ElementsType DataFilter::apply()
 
 	// create plan
 	bool calcRules = !queryFlag(NORULES) && m_source_cube->hasActiveRule();
-	CubeArea::CellType cellType = queryFlag(DATA_STRING) ? CubeArea::BASE_STRING : CubeArea::NUMERIC;
 	RulesType rulesType = calcRules ? RulesType(ALL_RULES | NO_RULE_IDS) : NO_RULES;
-	PPlanNode plan = m_source_cube->createPlan(calcArea, cellType, rulesType, true, UNLIMITED_SORTED_PLAN);
+	PPlanNode plan = m_source_cube->createPlan(calcArea, CubeArea::ALL, rulesType, true, UNLIMITED_SORTED_PLAN);
 	if (!plan) {
 		return ElementsType();
 	}
@@ -232,15 +220,29 @@ ElementsType DataFilter::apply()
 	}
 
 	double cellsPerElement = 1;
-	double numCellsPerElement = 1;
 	if (!isVirtual) {
 		for (size_t i = 0; i < dimCount; i++) {
 			if (i != pos) {
 				cellsPerElement *= calcArea->getDim(i)->size();
-				if (!isAggrFunc) {
-					numCellsPerElement *= numElemCount[i].size();
+			}
+		}
+	}
+
+	PCubeArea numericArea;
+	if (!isVirtual && !isAggrFunc && (QuantificationPlanNode::QuantificationType)funcType != QuantificationPlanNode::EXISTENCE) {
+		// build numericArea for ALL, ANY_NUM and ANY_STR
+		numericArea.reset(new CubeArea(database, m_source_cube, dimCount));
+		for (uint32_t i = 0; i < dimCount; ++i) {
+			CPDimension dim = database->lookupDimension((*dims)[i], false);
+			PSet numSet(new Set);
+			CPSet calcSet = calcArea->getDim(i);
+			for (Set::Iterator it = calcSet->begin(); it != calcSet->end(); ++it) {
+				Element *elem = dim->findElement(*it, 0, false);
+				if (elem->getElementType() == Element::NUMERIC || elem->getElementType() == Element::CONSOLIDATED) {
+					numSet->insert(*it);
 				}
 			}
+			numericArea->insert(i, numSet);
 		}
 	}
 
@@ -276,7 +278,7 @@ ElementsType DataFilter::apply()
 		plan.reset(new AggregationPlanNode(targArea, children, aggregationMaps, 0, CPCube(), type, 0, op, (int)pos, cellsPerElement));
 	} else {
 		QuantificationPlanNode::QuantificationType type = (QuantificationPlanNode::QuantificationType)funcType;
-		plan.reset(new QuantificationPlanNode(calcArea, children, type, op, (int)pos, isVirtual, numCellsPerElement, cellsPerElement - numCellsPerElement, calcRules));
+		plan.reset(new QuantificationPlanNode(calcArea, numericArea, children, type, op, (int)pos, isVirtual, cellsPerElement, calcRules, 0));
 	}
 
 //	Logger::debug << "DataFilter Plan: " << plan->toXML() << endl;

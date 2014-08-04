@@ -51,7 +51,7 @@ bool CellRightProcessor::next()
 
 		RightsType r = RIGHT_SPLASH;
 		if (User::checkUser(user)) {
-			r = user->getCellRight(cubeArea->getDatabase(), cubeArea->getCube(), *pathIt, vRights);
+			r = user->getCellRight(cubeArea->getDatabase(), cubeArea->getCube(), *pathIt, vRights, 0);
 		}
 		cellValue = User::rightsTypeToString(r);
 		key = *pathIt;

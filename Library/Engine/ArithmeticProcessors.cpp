@@ -233,13 +233,18 @@ vector<CellValueStream *> *ArithmeticProcessor::moveAny(const IdentifiersType &m
 	bool anyOperandActive = false;
 	bool firstCall = key.empty();
 	key.clear();
-	bool exactMatch = true;
+	bool exactMatch = false;
 	// call next for each stream and remember maximum
 	for (size_t operandOrdinal = 0; operandOrdinal < operandsCount; operandOrdinal++) {
 		bool found = false;
 		bool callMove = firstCall;
-		if (!callMove && hasNext[operandOrdinal] && CellValueStream::compare(streams[operandOrdinal]->getKey(), moveKey) < 0) {
-			callMove = true;
+		if (!callMove && hasNext[operandOrdinal]) {
+			int relPos = CellValueStream::compare(streams[operandOrdinal]->getKey(), moveKey);
+			if (relPos < 0) {
+				callMove = true;
+			} else if (!relPos) {
+				exactMatch = true;
+			}
 		}
 		if (callMove) {
 			hasNext[operandOrdinal] = streams[operandOrdinal]->move(moveKey, &found);
@@ -336,14 +341,17 @@ bool DivisionProcessor::next()
 	if (operands) {
 		double numValue = 0;
 		bool isError = false;
+		bool isNumerator = true;
 		for (vector<CellValueStream *>::const_iterator operand = operands->begin(); operand != operands->end(); ++operand) {
 			const CellValue &operandVal = (*operand) ? (*operand)->getValue() : constValue;
 			if (operandVal.isEmpty()) {
 				numValue = 0;
 				break;
 			} else if (operandVal.isNumeric()) {
-				if (numValue == 0) {
+				if (isNumerator) {
 					numValue = operandVal.getNumeric();
+				} else if (operandVal.getNumeric() == 0) {
+					numValue = 0.0;
 				} else {
 					numValue /= operandVal.getNumeric();
 				}
@@ -354,6 +362,7 @@ bool DivisionProcessor::next()
 			} else {
 				throw ErrorException(ErrorException::ERROR_INTERNAL, "DivisionProcessor::next invalid operand type!");
 			}
+			isNumerator = false;
 		}
 		if (!isError) {
 			value = numValue;
@@ -368,14 +377,17 @@ bool DivisionProcessor::move(const IdentifiersType &key, bool *found)
 	if (operands) {
 		double numValue = 0;
 		bool isError = false;
+		bool isNumerator = true;
 		for (vector<CellValueStream *>::const_iterator operand = operands->begin(); operand != operands->end(); ++operand) {
 			const CellValue &operandVal = (*operand) ? (*operand)->getValue() : constValue;
 			if (operandVal.isEmpty()) {
 				numValue = 0;
 				break;
 			} else if (operandVal.isNumeric()) {
-				if (numValue == 0) {
+				if (isNumerator) {
 					numValue = operandVal.getNumeric();
+				} else if (operandVal.getNumeric() == 0) {
+					numValue = 0.0;
 				} else {
 					numValue /= operandVal.getNumeric();
 				}
@@ -384,8 +396,9 @@ bool DivisionProcessor::move(const IdentifiersType &key, bool *found)
 				isError = true;
 				break;
 			} else {
-				throw ErrorException(ErrorException::ERROR_INTERNAL, "DivisionProcessor::next invalid operand type!");
+				throw ErrorException(ErrorException::ERROR_INTERNAL, "DivisionProcessor::move invalid operand type!");
 			}
+			isNumerator = false;
 		}
 		if (!isError) {
 			value = numValue;

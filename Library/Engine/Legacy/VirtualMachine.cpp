@@ -185,7 +185,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 						User::RightSetting rs(User::checkCellDataRightCube(adb, acube));
 						const IdentifiersType cp(path_t, path_t + acube->getDimensions()->size());
 						PCubeArea calcArea(new CubeArea(adb, acube, cp));
-						acube->checkAreaAccessRight(adb, user, calcArea, rs, false, RIGHT_READ);
+						acube->checkAreaAccessRight(adb, user, calcArea, rs, false, RIGHT_READ, 0);
 					}
 				} // target and source databases are the same for LD_SRC_STR and LD_SRC_DBL therefore User::checkRuleDatabaseRight doesn't have to be called
 
@@ -206,7 +206,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 							const IdentifiersType cp(path_t, path_t + rule->cube->acube->getDimensions()->size());
 							PCubeArea calcArea(new CubeArea(adb, acube, cp));
 							PCellStream cs = rule->cube->acube->calculateArea(calcArea, CubeArea::BASE_STRING, RulesType(ALL_RULES | NO_RULE_IDS), true, UNLIMITED_UNSORTED_PLAN);
-							if (cs->next()) {
+							if (cs && cs->next()) {
 								str_result = cs->getValue();
 							} else {
 								str_result = CellValue::NullString;
@@ -250,7 +250,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 								PCubeArea calcArea(new CubeArea(adb, acube, cp));
 								PCellStream cs = rule->cube->acube->calculateArea(calcArea, CubeArea::CONSOLIDATED, INDIRECT_RULES, true, 0);
 								CellValue result;
-								if (cs->next()) {
+								if (cs && cs->next()) {
 									result = cs->getValue();
 								} else {
 									result = CellValue::NullNumeric;
@@ -538,7 +538,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 							User::RightSetting rs(User::checkCellDataRightCube(adb, acube));
 							const IdentifiersType cp(path_t, path_t + acube->getDimensions()->size());
 							PCubeArea calcArea(new CubeArea(adb, acube, cp));
-							acube->checkAreaAccessRight(adb, user, calcArea, rs, false, RIGHT_READ);
+							acube->checkAreaAccessRight(adb, user, calcArea, rs, false, RIGHT_READ, 0);
 						}
 					} else {
 						User::checkRuleDatabaseRight(user.get(), rule->cube->database->getId(), adb->getId());
@@ -553,7 +553,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 								const IdentifiersType cp(path_t, path_t + cube->acube->getDimensions()->size());
 								PCubeArea calcArea(new CubeArea(adb, acube, cp));
 								PCellStream cs = cube->acube->calculateArea(calcArea, CubeArea::BASE_STRING, RulesType(ALL_RULES | NO_RULE_IDS), true, 0);
-								if (cs->next()) {
+								if (cs && cs->next()) {
 									result = cs->getValue();
 								} else {
 									result = CellValue::NullString;
@@ -612,7 +612,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 							const IdentifiersType cp(path_t, path_t + cube->acube->getDimensions()->size());
 							PCubeArea calcArea(new CubeArea(adb, acube, cp));
 							PCellStream cs = cube->acube->calculateArea(calcArea, CubeArea::CONSOLIDATED, INDIRECT_RULES, true, 0);
-							if (cs->next()) {
+							if (cs && cs->next()) {
 								result = cs->getValue();
 							} else {
 								result = CellValue::NullNumeric;
@@ -733,7 +733,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 				const IdentifiersType cp(path, path + rule->cube->acube->getDimensions()->size());
 				PCubeArea calcArea(new CubeArea(adb, CONST_COMMITABLE_CAST(Cube, rule->cube->acube->shared_from_this()), cp));
 				PCellStream cs = rule->cube->acube->calculateArea(calcArea, CubeArea::ALL, INDIRECT_RULES, true, 0);
-				if (cs->next()) {
+				if (cs && cs->next()) {
 					val = cs->getValue();
 				}
 				val_0 = val;
@@ -758,7 +758,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 					CPDatabase adb = CONST_COMMITABLE_CAST(Database, context->getParent(rule->cube->acube->shared_from_this()));
 					PCubeArea calcArea(new CubeArea(adb, CONST_COMMITABLE_CAST(Cube, rule->cube->acube->shared_from_this()), apath));
 					PCellStream cs = rule->cube->acube->calculateArea(calcArea, CubeArea::ALL, RulesType(INDIRECT_RULES | NOCACHE), true, 0);
-					if (cs->next()) {
+					if (cs && cs->next()) {
 						val = cs->getValue();
 					}
 					val_0 = val;

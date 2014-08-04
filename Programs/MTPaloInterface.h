@@ -56,15 +56,13 @@ private:
 	std::vector<PHttpServerTask> active_connections;
 	Mutex connections_lock;
 public:
-	MTPaloHttpInterface(PaloOptions* options, JobAnalyser* analyser) : PaloHttpInterface(options, analyser) {tg = Context::getContext()->getServer()->getThreadPool()->createThreadGroup();}
-	virtual ~MTPaloHttpInterface() {Context::getContext()->getServer()->getThreadPool()->destroyThreadGroup(tg);}
+	MTPaloHttpInterface(PaloOptions* options, JobAnalyser* analyser) : PaloHttpInterface(options, analyser) {}
+	virtual ~MTPaloHttpInterface() {}
 
 	void handleShutdown();
 	void run();
 private:
 	virtual void EnablePaloInterface(PaloHttpServer *paloHttpServer);
-
-	ThreadPool::ThreadGroup tg;
 };
 
 }

@@ -71,35 +71,43 @@ public:
 		findPath();
 		checkToken(cube);
 
+		bool isReadableCell = true;
+		bool defaultUsed = false;
 		if (User::checkUser(user)) {
 			User::RightSetting rs(User::checkCellDataRightCube(database, cube));
-			cube->checkAreaAccessRight(database, user, cellPath, rs, false, RIGHT_READ);
+			isReadableCell = isReadable(cellPath, rs, &defaultUsed);
 		}
 		checkProperties();
 
-		RulesType rulesType = jobRequest->showRule ? ALL_RULES : RulesType(ALL_RULES | NO_RULE_IDS);
-
-		PCellStream cs = cube->calculateArea(cellPath, CubeArea::ALL, rulesType, false, UNLIMITED_UNSORTED_PLAN);
 		response = new HttpResponse(HttpResponse::OK);
 		setToken(cube);
-		vector<CellValue> prop_vals;
+
 		CellValue value;
-		if (!cs->next()) {
-			value = CellValue(ErrorException::ERROR_ELEMENT_NOT_FOUND);
-		} else {
-			value = cs->getValue();
-		}
-		if (jobRequest->properties) {
-			RightsType r = RIGHT_DELETE;
-
-			vector<User::RoleDbCubeRight> vRights;
-			if (User::checkUser(user)) {
-				user->fillRights(vRights, User::cellDataRight, database, cube);
-				r = user->getCellRight(database, cube, *jobRequest->path, vRights);
+		vector<CellValue> prop_vals;
+		if (isReadableCell) {
+			RulesType rulesType = jobRequest->showRule ? ALL_RULES : RulesType(ALL_RULES | NO_RULE_IDS);
+			PCellStream cs = cube->calculateArea(cellPath, CubeArea::ALL, rulesType, false, UNLIMITED_UNSORTED_PLAN);
+			if (cs->next()) {
+				value = cs->getValue();
+			} else {
+				throw ErrorException(ErrorException::ERROR_INTERNAL, "invalid stream in CellValueJob::compute");
 			}
+			if (jobRequest->properties) {
+				RightsType r = RIGHT_DELETE;
+				if (User::checkUser(user)) {
+					vector<User::RoleDbCubeRight> vRights;
+					user->fillRights(vRights, User::cellDataRight, database, cube);
+					r = user->getCellRight(database, cube, *jobRequest->path, vRights, 0);
+				}
 
-			PCellStream props = getCellPropsStream(database, cube, cellPath, *jobRequest->properties);
-			fillProps(prop_vals, *jobRequest->path, props, *jobRequest->properties, r);
+				PCellStream props = getCellPropsStream(database, cube, cellPath, *jobRequest->properties);
+				fillProps(prop_vals, *jobRequest->path, props, *jobRequest->properties, r);
+			}
+		} else {
+			if (jobRequest->properties) {
+				prop_vals.resize(jobRequest->properties->size());
+			}
+			value = CellValue(database->getHideElements() && !defaultUsed ? ErrorException::ERROR_ELEMENT_NOT_FOUND : ErrorException::ERROR_NOT_AUTHORIZED);
 		}
 		generateCellValueResponse(*jobRequest->path, value, prop_vals);
 	}

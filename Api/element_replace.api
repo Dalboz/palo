@@ -9,19 +9,31 @@ the given children elements.
 
 @param database
 @param_type identifier
-@param_description Identifier of a database
+@param_description Identifier of the database
  
+@param name_database
+@param_type string
+@param_description Name of the database. Used only if database parameter is omitted.
+
 @param dimension
 @param_type identifier
-@param_description Identifier of a dimension
+@param_description Identifier of the dimension
+
+@param name_dimension
+@param_type string
+@param_description Name of the dimension. Used only if dimension parameter is omitted.
  
 @param element
 @param_type identifier
-@param_description Identifier of an element.
+@param_description Identifier of the element
 
 @param name_element
 @param_type string
-@param_description Name of an element. (alternative parameter for "element")
+@param_description Name of the element. (alternative for element parameter when the element exists, alternative for new_name parameter when new element is created)
+
+@param new_name
+@param_type string
+@param_description Name of the new element
 
 @param type
 @param_type integer
@@ -31,11 +43,13 @@ the given children elements.
 @param_type identifier
 @param_description Comma separated list of children identifiers. (Only for type=4)
 
+@param name_children
+@param_type string
+@param_description Comma separated list of children names. Used only if children parameter is omitted. (Only for type=4)
+
 @param weights 
 @param_type double 
-@param_description Optional comma
-separate list of children weight. (defaults to weight=1 for each
-child) (Only for type=4)
+@param_description Optional comma separated list of children weights. (defaults to weight=1 for each child) (Only for type=4)
  
 @param sid 
 @param_type string 

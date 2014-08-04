@@ -93,6 +93,7 @@ void MTPaloHttpInterface::handleShutdown()
 void MTPaloHttpInterface::run()
 {
 	PThreadPool tp = Context::getContext()->getServer()->getThreadPool();
+	ThreadPool::ThreadGroup tg = Context::getContext()->getServer()->getThreadPool()->createThreadGroup(true);
 	Context::reset();
 	fd_set sockets;
 	runnable = true;

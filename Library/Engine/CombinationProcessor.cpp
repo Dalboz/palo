@@ -225,9 +225,15 @@ bool DisjunctiveCombinationProcessor::next()
 					if (index >= (int)firstDiff.size()) {
 						if (pos[i] == -1) {
 							break;
+						} else if (i && pos[i] > pos[i - 1]) { // continue with the same stream
+							i--;
+							break;
 						}
 					} else {
 						if (pos[i] < (int32_t)firstDiff[index]) {
+							break;
+						} else if (i && pos[i] > pos[i - 1]) { // continue with the same stream
+							i--;
 							break;
 						}
 					}

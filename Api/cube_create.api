@@ -7,7 +7,11 @@
 
 @param database
 @param_type identifier
-@param_description Identifier of a database
+@param_description Identifier of the database
+ 
+@param name_database
+@param_type string
+@param_description Name of the database. Used only if database parameter is omitted.
  
 @param new_name
 @param_type string
@@ -16,6 +20,10 @@
 @param dimensions
 @param_type identifier
 @param_description Comma separated list of dimension identifiers
+
+@param name_dimensions
+@param_type string
+@param_description Comma separated list of dimension names. Used only if dimensions parameter is omitted.
  
 @param type
 @param_type identifier

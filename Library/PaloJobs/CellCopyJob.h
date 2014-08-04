@@ -108,10 +108,10 @@ public:
 			if (jobRequest->function) {
 				IdentifierType timeDim = checkArea();
 				PCubeArea calcArea(new CubeArea(database, cube, *jobRequest->area));
-				cube->checkAreaAccessRight(database, user, calcArea, rs, false, RIGHT_READ);
+				cube->checkAreaAccessRight(database, user, calcArea, rs, false, RIGHT_READ, 0);
 				dValue = calculatePredictFunction(calcArea, timeDim);
 			} else {
-				cube->checkAreaAccessRight(database, user, cellPath, rs, false, RIGHT_READ);
+				cube->checkAreaAccessRight(database, user, cellPath, rs, false, RIGHT_READ, 0);
 				if (jobRequest->value) {
 					dValue = StringUtils::stringToDouble(*(jobRequest->value));
 				} else {
@@ -120,7 +120,7 @@ public:
 			}
 
 			if (ptrValue) {
-				cube->checkAreaAccessRight(database, user, cellPathTo, rs, dValue == 0.0, RIGHT_SPLASH);
+				cube->checkAreaAccessRight(database, user, cellPathTo, rs, dValue == 0.0, RIGHT_SPLASH, 0);
 			}
 
 			bool unused = false; //NULL is also an unused value

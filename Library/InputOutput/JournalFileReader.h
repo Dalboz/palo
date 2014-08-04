@@ -77,6 +77,8 @@ public:
 	static const string JOURNAL_ELEMENT_REMOVE_CHILDREN;
 	static const string JOURNAL_ELEMENT_RENAME;
 	static const string JOURNAL_ELEMENT_REPLACE;
+	static const string JOURNAL_ELEMENTS_BULK_START;
+	static const string JOURNAL_ELEMENTS_BULK_STOP;
 
 	// common
 	static const string JOURNAL_VERSION;
@@ -108,6 +110,7 @@ public:
 	////////////////////////////////////////////////////////////////////////////////
 
 	JournalFileReader(const FileName& fileName);
+	JournalFileReader(boost::shared_ptr<FileReader> stringVectorReader, const FileName &fileName) : FileReader(fileName) {this->reader = stringVectorReader;}
 
 public:
 

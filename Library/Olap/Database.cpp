@@ -48,6 +48,7 @@
 #include "InputOutput/FileWriter.h"
 #include "InputOutput/FileUtils.h"
 #include "InputOutput/JournalFileReader.h"
+#include "InputOutput/StringVectorReader.h"
 #include "Logger/Logger.h"
 #include "InputOutput/Statistics.h"
 
@@ -314,12 +315,13 @@ boost::shared_ptr<JournalFileReader> Database::initJournalProcess()
 	return history;
 }
 
-vector<PCube> Database::processJournalCommand(PServer server, JournalFileReader &history, bool &changed, FileReader *file, IdentifiersType &deletedDims)
+vector<PCube> Database::processJournalCommand(PServer server, JournalFileReader &history, bool &changed, FileReader *file, IdentifiersType &deletedDims, IdentifierType &bulkDimId, vector<vector<string> > &elementBulkCommands)
 {
 	string username = history.getDataString(1);
 	string event = history.getDataString(2);
 	string command = history.getDataString(3);
 	vector<PCube> createdCubes;
+	bool inBulk = (file == NULL);
 
 	if (history.getVersion().isUnknown() && command != JournalFileReader::JOURNAL_VERSION) {
 		throw ErrorException(ErrorException::ERROR_INVALID_VERSION, "database " + StringUtils::convertToString(getId()) + " has nonempty journal file from old version");
@@ -336,6 +338,38 @@ vector<PCube> Database::processJournalCommand(PServer server, JournalFileReader 
 		if (history.getVersion() < minimumRequired) {
 			throw ErrorException(ErrorException::ERROR_INVALID_VERSION, "database " + StringUtils::convertToString(getId()) + " has nonempty journal file from old version");
 		}
+	}
+
+	else if (command == JournalFileReader::JOURNAL_ELEMENTS_BULK_START) {
+		bulkDimId = history.getDataInteger(4);
+		elementBulkCommands.clear();
+	}
+
+	else if (command == JournalFileReader::JOURNAL_ELEMENTS_BULK_STOP) {
+		IdentifierType dimId = history.getDataInteger(4);
+		if (dimId != bulkDimId) {
+			Logger::error << "Corrupted element bulk in journal, started " << bulkDimId << ", ended with " << dimId << endl;
+		} else {
+			PDimension dimension = findDimension(dimId, PUser(), true);
+
+			if (!file) {
+				throw ErrorException(ErrorException::ERROR_INTERNAL, "unknown filename in journal processing");
+			}
+
+			JournalFileReader jfr(boost::shared_ptr<FileReader>(new StringVectorReader(elementBulkCommands, file->getFileName())), file->getFileName());
+			jfr.setVersion(history.getVersion().release, history.getVersion().sr, history.getVersion().build);
+			elementBulkCommands.clear();
+			bulkDimId = NO_IDENTIFIER;
+			while (jfr.isDataLine()) {
+				processJournalCommand(server, jfr, changed, NULL, deletedDims, bulkDimId, elementBulkCommands);
+				jfr.nextLine(false);
+			}
+			dimension->updateElementsInfo();
+		}
+	}
+
+	else if (bulkDimId != NO_IDENTIFIER) { // we are in bulk, save command to execute it in BULK STOP
+		elementBulkCommands.push_back(history.getDataStrings(NO_IDENTIFIER, ';'));
 	}
 
 	else if (command == JournalFileReader::JOURNAL_CUBE_CONVERT) {
@@ -450,7 +484,9 @@ vector<PCube> Database::processJournalCommand(PServer server, JournalFileReader 
 		}
 		if (dimension) {
 			dimension->addElement(server, COMMITABLE_CAST(Database, shared_from_this()), idElement, name, type, PUser(), false);
-			dimension->updateElementsInfo();
+			if (!inBulk) {
+				dimension->updateElementsInfo();
+			}
 
 			changed = true;
 		}
@@ -497,8 +533,10 @@ vector<PCube> Database::processJournalCommand(PServer server, JournalFileReader 
 				iw[i].second = weights[i];
 			}
 
-			dimension->addChildren(server, COMMITABLE_CAST(Database, shared_from_this()), dimension->findElement(idElement, 0, true), &iw, PUser(), NULL, true, true, false, NULL);
-			dimension->updateElementsInfo(); // should do nothing
+			dimension->addChildren(server, COMMITABLE_CAST(Database, shared_from_this()), dimension->findElement(idElement, 0, true), &iw, PUser(), NULL, true, !inBulk, false, NULL);
+			if (!inBulk) {
+				dimension->updateElementsInfo(); // should do nothing
+			}
 
 			changed = true;
 		}
@@ -522,7 +560,9 @@ vector<PCube> Database::processJournalCommand(PServer server, JournalFileReader 
 
 		if (dimension) {
 			dimension->changeElementType(server, COMMITABLE_CAST(Database, shared_from_this()), dimension->findElement(idElement, 0, true), type, PUser(), false, NULL, NULL, true);
-			dimension->updateElementsInfo();
+			if (!inBulk) {
+				dimension->updateElementsInfo();
+			}
 
 			changed = true;
 		}
@@ -550,7 +590,9 @@ vector<PCube> Database::processJournalCommand(PServer server, JournalFileReader 
 
 		if (dimension) {
 			dimension->removeChildren(server, COMMITABLE_CAST(Database, shared_from_this()), PUser(), dimension->findElement(idElement, 0, true), NULL, false, false);
-			dimension->updateElementsInfo();
+			if (!inBulk) {
+				dimension->updateElementsInfo();
+			}
 
 			changed = true;
 		}
@@ -577,7 +619,9 @@ vector<PCube> Database::processJournalCommand(PServer server, JournalFileReader 
 			}
 
 			dimension->removeChildrenNotIn(server, COMMITABLE_CAST(Database, shared_from_this()), PUser(), dimension->findElement(idElement, 0, true), &keep, NULL, false);
-			dimension->updateElementsInfo();
+			if (!inBulk) {
+				dimension->updateElementsInfo();
+			}
 
 			changed = true;
 		}
@@ -840,6 +884,8 @@ void Database::processJournalsChronologically(PServer server, FileReader *file, 
 	}
 
 	IdentifiersType deletedDims;
+	vector<vector<string> > elementBulkCommands;
+	IdentifierType bulkDimId = NO_IDENTIFIER;
 
 	while (!journals.empty()) { // while any journal contains commands
 		vector<journalStruct>::iterator min = journals.begin();
@@ -859,7 +905,7 @@ void Database::processJournalsChronologically(PServer server, FileReader *file, 
 			min->pcube->processJournalCommand(server, db, min->cpcube, *min->history, min->inBulk, min->changedCubes);
 		} else {
 			// database journal
-			newCubes = processJournalCommand(server, *min->history, dbChanged, file, deletedDims);
+			newCubes = processJournalCommand(server, *min->history, dbChanged, file, deletedDims, bulkDimId, elementBulkCommands);
 		}
 
 		min->history->nextLine();

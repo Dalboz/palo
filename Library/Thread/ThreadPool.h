@@ -36,6 +36,8 @@
 
 #include <queue>
 
+#include "Exceptions/ErrorException.h"
+
 namespace palo {
 
 class Semaphore {
@@ -76,19 +78,35 @@ private:
 class ThreadPoolJob;
 typedef boost::shared_ptr<ThreadPoolJob> PThreadPoolJob;
 
+struct TGError {
+	TGError(ErrorException::ErrorType type, const string &message, const string &details, uint32_t ruleId) :
+		type(type), message(message), details(details), ruleId(ruleId) {}
+	ErrorException::ErrorType type;
+	string message;
+	string details;
+	uint32_t ruleId;
+};
+
+struct TGInner {
+	TGInner(bool notthrow) : count(0), sem(new Semaphore), notthrow(notthrow) {}
+	size_t count;
+	Semaphore *sem;
+	vector<TGError> errors;
+	bool notthrow;
+};
+
 class ThreadPool {
 	friend class ThreadPoolJob;
 	friend class ThreadStarter;
 	friend class TGReleaser;
 public:
-	typedef std::list<std::pair<size_t, Semaphore *> >::iterator ThreadGroup;
+	typedef std::list<TGInner>::iterator ThreadGroup;
 
 	ThreadPool();
 	~ThreadPool();
 	void addJob(PThreadPoolJob job, unsigned int priority = 0);
-	void join(ThreadGroup &tg);
-	ThreadGroup createThreadGroup();
-	void destroyThreadGroup(ThreadGroup &tg);
+	void join(ThreadGroup &tg, bool throwex = true);
+	ThreadGroup createThreadGroup(bool notthrow = false);
 	bool hasFreeCore(bool countThis) {return freeThreads - (countThis ? 1 : 0) >= threads - processorCount;}
 	size_t getCoreCount() {return processorCount;}
 	void destroy();
@@ -110,7 +128,7 @@ private:
 	size_t hpThreads;
 	Semaphore hpWakeup;
 	bool stop;
-	std::list<std::pair<size_t, Semaphore *> > threadGroups;
+	std::list<TGInner> threadGroups;
 	bool destroyed;
 };
 typedef boost::shared_ptr<ThreadPool> PThreadPool;
@@ -136,8 +154,8 @@ public:
 		} else {
 			++tp->freeThreads;
 		}
-		--s->first;
-		s->second->release();
+		--s->count;
+		s->sem->release();
 	}
 private:
 	ThreadPool::ThreadGroup &s;

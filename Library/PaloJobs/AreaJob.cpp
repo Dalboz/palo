@@ -102,7 +102,7 @@ void AreaJob::appendValue(const IdentifiersType &key, const CellValue &value, co
 	sb->appendEol();
 }
 
-double AreaJob::fillEmptyDim(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, vector<IdentifiersType> &area, PCube &cube, PDatabase &database, PUser &user, vector<set<uint32_t> > *numElemCount, size_t pos)
+double AreaJob::fillEmptyDim(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, vector<IdentifiersType> &area, PCube &cube, PDatabase &database, PUser &user)
 {
 	const IdentifiersType *dimensions = cube->getDimensions();
 	for (size_t i = 0; i < area.size(); i++) {
@@ -117,11 +117,6 @@ double AreaJob::fillEmptyDim(vector<User::RoleDbCubeRight> &vRights, bool checkP
 					if (!database->getHideElements() || checkElement(dim, *j, vRights, checkPermissions, database, user)) {
 						Element *elem = *j;
 						area.at(i).push_back(elem->getIdentifier());
-						if (numElemCount && i != pos) {
-							if (elem->getElementType() == Element::NUMERIC || elem->getElementType() == Element::CONSOLIDATED) {
-								numElemCount->at(i).insert(elem->getIdentifier());
-							}
-						}
 					}
 				}
 			}
@@ -208,9 +203,11 @@ bool AreaJob::loop(CPArea area, PCubeArea calcArea, PCellStream cs, uint64_t *ma
 	IdentifiersType newKey;
 	uint64_t validCount = freeCount;
 
-	User::RightSetting rs(User::checkCellDataRightCube(database, cube));
+	bool checkCellDataRightCube = User::checkCellDataRightCube(database, cube); // true if groupCellDataCube contains values or rules
+	User::RightSetting rs(false);
 	bool getCellRight = jobRequest->properties && User::checkUser(user);
-	bool isReadableArea = getCellRight ? false : isReadable(calcArea, rs);
+	bool isReadableArea = (getCellRight || checkCellDataRightCube) ? false : isReadable(calcArea, rs, 0);
+	rs.checkCells = checkCellDataRightCube;
 
 	double areaSize = calcArea->getSize();
 	if (areaSize) {
@@ -282,28 +279,29 @@ void AreaJob::generateMissingValues_intern(Area::PathIterator &curr, PCellStream
 void AreaJob::generateValue(const IdentifiersType &key, const CellValue value, PCellStream props, bool getCellRight, vector<User::RoleDbCubeRight> &vRights, bool isReadableArea, User::RightSetting rs, uint64_t &freeCount)
 {
 	if (freeCount) {
+		bool defaultUsed = false;
 		bool isReadableCell = true;
 		RightsType r = RIGHT_DELETE;
 
 		if (getCellRight) {
-			r = user->getCellRight(database, cube, key, vRights);
+			r = user->getCellRight(database, cube, key, vRights, &defaultUsed);
 			isReadableCell = r >= RIGHT_READ;
 		} else {
 			if (isReadableArea) {
 				isReadableCell = true;
 			} else {
 				PCubeArea cp(new CubeArea(database, cube, key));
-				isReadableCell = isReadable(cp, rs);
+				isReadableCell = isReadable(cp, rs, &defaultUsed);
 			}
 		}
 
 		bool generated = false;
 		vector<CellValue> prop_vals;
 		if (isReadableCell) {
-			if (jobRequest->properties) {
-				fillProps(prop_vals, key, props, *jobRequest->properties, r);
-			}
 			if (checkCondition(value)) {
+				if (jobRequest->properties) {
+					fillProps(prop_vals, key, props, *jobRequest->properties, r);
+				}
 				appendValue(key, value, prop_vals);
 				generated = true;
 			}
@@ -311,7 +309,7 @@ void AreaJob::generateValue(const IdentifiersType &key, const CellValue value, P
 			if (jobRequest->properties) {
 				prop_vals.resize(jobRequest->properties->size());
 			}
-			appendValue(key, CellValue(database->getHideElements() ? ErrorException::ERROR_ELEMENT_NOT_FOUND : ErrorException::ERROR_NOT_AUTHORIZED), prop_vals);
+			appendValue(key, CellValue(database->getHideElements() && !defaultUsed ? ErrorException::ERROR_ELEMENT_NOT_FOUND : ErrorException::ERROR_NOT_AUTHORIZED), prop_vals);
 			generated = true;
 		}
 
@@ -424,11 +422,11 @@ bool AreaJob::keyCompareProp(const IdentifiersType &key, const IdentifiersType &
 	return true;
 }
 
-bool AreaJob::isReadable(PCubeArea area, User::RightSetting& rs) const
+bool AreaJob::isReadable(PCubeArea area, User::RightSetting& rs, bool *defaultUsed) const
 {
 	bool isReadable = true;
 	try {
-		cube->checkAreaAccessRight(database, user, area, rs, false, RIGHT_READ);
+		cube->checkAreaAccessRight(database, user, area, rs, false, RIGHT_READ, defaultUsed);
 	} catch (const ErrorException& e) {
 		if (e.getErrorType() == ErrorException::ERROR_NOT_AUTHORIZED) {
 			isReadable = false;

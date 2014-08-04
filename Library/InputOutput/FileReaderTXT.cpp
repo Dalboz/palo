@@ -296,6 +296,10 @@ bool FileReaderTXT::getDataBool(int num, bool defaultValue) const
 
 const vector<string> FileReaderTXT::getDataStrings(int num, char separator)
 {
+	if ((IdentifierType)num == NO_IDENTIFIER) {
+		return dataLine;
+	}
+
 	string x = getDataString(num);
 	vector<string> result;
 	splitString(x, &result, separator);

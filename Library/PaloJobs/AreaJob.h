@@ -72,7 +72,7 @@ public:
 
 	PCellStream getCellPropsStream(CPDatabase db, CPCube cube, CPCubeArea area, const IdentifiersType &properties);
 	void fillProps(vector<CellValue> &result, const IdentifiersType &key, PCellStream &propStream, const IdentifiersType &properties, RightsType right);
-	static double fillEmptyDim(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, vector<IdentifiersType> &area, PCube &cube, PDatabase &database, PUser &user, vector<set<uint32_t> > *numElemCount, size_t pos);
+	static double fillEmptyDim(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, vector<IdentifiersType> &area, PCube &cube, PDatabase &database, PUser &user);
 	static PCubeArea checkRights(vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, CPArea area, bool* hasStringElem, PCube &cube, PDatabase &database, PUser &user, bool reduceCalcArea, PArea &noPermission, bool &isNoPermission, vector<CPDimension> &dims);
 
 protected:
@@ -85,6 +85,8 @@ protected:
 
 	bool loop(CPArea area, PCubeArea calcArea, PCellStream cs, uint64_t *maxCount, PCellStream props, vector<User::RoleDbCubeRight> &vRights, IdentifiersType *lastKey, bool emptyValues);
 	virtual bool checkCondition(const CellValue &value) const {return true;}
+	bool isReadable(PCubeArea area, User::RightSetting& rs, bool *defaultUsed) const;
+
 private:
 	static bool checkElement(CPDimension &dim, Element *e, vector<User::RoleDbCubeRight> &vRights, bool checkPermissions, PDatabase &database, PUser &user);
 	void generateMissingValues(Area::PathIterator &curr, const Area::PathIterator &end, const IdentifiersType *newKey, PCellStream props, bool emptyValues, bool getCellRight, vector<User::RoleDbCubeRight> &vRights, bool isReadableArea, User::RightSetting rs, uint64_t &freeCount);
@@ -93,7 +95,6 @@ private:
 	bool generateError(Area::PathIterator &curr, uint64_t &freeCount, PArea &restriction, ErrorException::ErrorType error);
 	void insertProperties(vector<CellValue> &result, PCellStream &propStream, const IdentifiersType &key);
 	bool keyCompareProp(const IdentifiersType &key, const IdentifiersType &keyProp);
-	bool isReadable(PCubeArea area, User::RightSetting& rs) const;
 
 	map<IdentifierType, vector<size_t> > propPositions;
 	bool firstProp;

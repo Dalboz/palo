@@ -15,15 +15,27 @@ to be installed separately.
 
 @param database
 @param_type identifier
-@param_description Identifier of a database
+@param_description Identifier of the database
+ 
+@param name_database
+@param_type string
+@param_description Name of the database. Used only if database parameter is omitted.
  
 @param cube
 @param_type identifier
-@param_description Identifier of a cube
+@param_description Identifier of the cube
+
+@param name_cube
+@param_type string
+@param_description Name of the cube. Used only if cube parameter is omitted.
 
 @param path
 @param_type path
-@param_description Comma separated list of elements identifier (path of cube cell)
+@param_description Comma separated list of element identifiers
+
+@param name_path
+@param_type npath
+@param_description Comma separated list of element names. Used only if path parameter is omitted.
 
 @param mode
 @param_type integer

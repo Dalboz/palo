@@ -60,15 +60,16 @@ private:
 	static bool matchingPlanNode(CalcNodeType calcType, PlanNodeType planType, bool &isAggr, bool &isRule);
 
 	void processAggregation(CPPlanNode planNode, PArea rarea, bool &isComplete);
-	void processReducedArea(CPPlanNode planNode, PArea rarea, AggregationMap *aggrMap, bool isRule, bool &isComplete);
-	void processEmptyCells(bool &isComplete);
-	bool checkValue(IdentifierType id, const CellValue &value, bool &isComplete);
+	void processReducedArea(CPPlanNode planNode, PArea rarea, AggregationMap *aggrMap, bool isRule, bool &isComplete, bool isNumeric);
+	void processEmptyCells();
+	bool checkValue(IdentifierType id, const CellValue &value, bool &isComplete, bool isNumeric);
 	void insertId(IdentifierType id, const CellValue &val, bool &isComplete);
-	void increaseCounter(IdentifierType id, bool cond);
-	CubeArea::CellType cellType() const;
+	void increaseCounter(IdentifierType id, bool cond, bool isNumeric);
 	void checkLimit() const;
+	void getCounts(Dimension *dim, IdentifierType elemId, double &numCellCount, double &strCellCount) const;
 
 	PCubeArea area;
+	CPCubeArea numericArea;
 	bool init;
 	QuantificationPlanNode::QuantificationType quantType;
 	uint32_t filteredDim;
@@ -84,8 +85,10 @@ private:
 	set<IdentifierType> subset;
 	set<IdentifierType> complement;
 	set<IdentifierType>::iterator pos; // iterator in subset
-	map<IdentifierType, double> counterTrue;
-	map<IdentifierType, double> counterFalse;
+	map<IdentifierType, double> counterNumTrue;
+	map<IdentifierType, double> counterNumFalse;
+	map<IdentifierType, double> counterStrTrue;
+	map<IdentifierType, double> counterStrFalse;
 	map<IdentifierType, CellValue> values;
 	bool validValue;
 };

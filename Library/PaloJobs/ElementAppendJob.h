@@ -147,11 +147,6 @@ public:
 			for (CubeRulesArray::iterator it = disabledRules.begin(); it != disabledRules.end(); it++) {
 				if (it->first) {
 					it->first->activateRules(server, database, it->second, ACTIVE, PUser(), NULL, false, false);
-//					for (vector<PRule>::iterator ruleIt = it->second.begin(); ruleIt != it->second.end(); ruleIt++) {
-//						if (!(*ruleIt)->isActive()) {
-//							it->first->activateRules(server, database, *ruleIt, true, PUser(), NULL, false, false);
-//						}
-//					}
 				}
 			}
 

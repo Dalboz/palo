@@ -59,7 +59,7 @@ public:
 
 	PCommitable copy() const;
 	PCellStream calculatePropertiesArea(CPDatabase db, CPCube origCube, PCubeArea area) const;
-	virtual void checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight) const;
+	virtual void checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight, bool *defaultUsed) const;
 	virtual RightsType getMinimumAccessRight(CPUser user) const;
 	virtual RightsType getCubeAccessRight(CPUser user) const;
 	virtual PPlanNode createPlan(PCubeArea area, CubeArea::CellType type, RulesType paramRulesType, bool skipEmpty, uint64_t blockSize) const;

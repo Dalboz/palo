@@ -636,7 +636,7 @@ public:
 	////////////////////////////////////////////////////////////////////////////////
 
 	// throws exception, checks everything
-	virtual void checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight) const;
+	virtual void checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight, bool *defaultUsed) const;
 
 	////////////////////////////////////////////////////////////////////////////////
 	/// @brief get the minimum access right for the cube

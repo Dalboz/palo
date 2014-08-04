@@ -10,6 +10,10 @@
 @param_type identifier
 @param_description Identifier of the database
 
+@param name_database
+@param_type string
+@param_description Name of the database. Used only if database parameter is omitted.
+
 @param show_normal
 @param_type identifier
 @param_description Show dimensions of type normal (0=do not show normal dimensions, 1=show (default))

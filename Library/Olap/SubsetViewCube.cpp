@@ -69,8 +69,11 @@ bool SubsetViewCube::merge(const CPCommitable &o, const PCommitable &p)
 	return Cube::merge(o, p);
 }
 
-void SubsetViewCube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight) const
+void SubsetViewCube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight, bool *defaultUsed) const
 {
+	if (defaultUsed) {
+		*defaultUsed = false;
+	}
 	if (minimumRight == RIGHT_WRITE && isGlobalCube) {
 		minimumRight = RIGHT_DELETE;
 	}

@@ -375,7 +375,7 @@ bool User::getGroups(PSystemDatabase sysDb, bool checkExists)
 			}
 		}
 
-		Logger::trace << "loading group rights for user " << getName() << endl;
+		isAdmin = false;
 		for (vector<string>::const_iterator i = groupNames.begin(); i != groupNames.end(); ++i) {
 			Element* e = sysDb->getGroupElement(*i);
 
@@ -384,9 +384,6 @@ bool User::getGroups(PSystemDatabase sysDb, bool checkExists)
 				if (e->getName(dim->getElemNamesVector()) == SystemDatabase::NAME_ADMIN) {
 					isAdmin = true;
 				}
-				Logger::trace << "group '" << *i << "' found in group dimension" << endl;
-			} else {
-				Logger::trace << "group '" << *i << "' not found in group dimension" << endl;
 			}
 		}
 	} else {
@@ -417,6 +414,7 @@ bool User::getGroups(PSystemDatabase sysDb, bool checkExists)
 		area->insert(1, s);
 
 		PCellStream cs = userGroupCube->calculateArea(area, CubeArea::ALL, RulesType(ALL_RULES | NO_RULE_IDS), true, UNLIMITED_UNSORTED_PLAN);
+		isAdmin = false;
 		while (cs->next()) {
 			const CellValue value = cs->getValue();
 
@@ -936,15 +934,17 @@ void User::checkRuleDatabaseRight(const User *user, IdentifierType targDb, Ident
 
 void User::updateGlobalDatabaseToken(PServer server, PDatabase db)
 {
-	if (db->getStatus() == Database::LOADED || db->getStatus() == Database::CHANGED) {
-		PSystemDatabase sysDb = server->getSystemDatabase();
-		if (sysDb != 0) {
-			PUserList users = sysDb->getUsers(true);
-			sysDb->setUsers(users);
-			for (UserList::Iterator it = users->begin(); it != users->end(); ++it) {
-				PUser user = COMMITABLE_CAST(User, users->get((*it)->getId(), true));
-				users->set(user);
+	PSystemDatabase sysDb = server->getSystemDatabase();
+	if (sysDb != 0) {
+		PUserList users = sysDb->getUsers(true);
+		sysDb->setUsers(users);
+		for (UserList::Iterator it = users->begin(); it != users->end(); ++it) {
+			PUser user = COMMITABLE_CAST(User, users->get((*it)->getId(), true));
+			users->set(user);
+			if (db->getStatus() == Database::LOADED || db->getStatus() == Database::CHANGED) {
 				user->computeRights(db);
+			} else {
+				user->computeDbDataRights(db, sysDb);
 			}
 		}
 	}
@@ -990,11 +990,14 @@ void User::refreshRights()
 		RDCDRights.clear();
 		dimRights.clear();
 
-		PDatabaseList dbs = Context::getContext()->getServer()->getDatabaseList(false);
+		PServer server = Context::getContext()->getServer();
+		PDatabaseList dbs = server->getDatabaseList(false);
 		for (DatabaseList::Iterator it = dbs->begin(); it != dbs->end(); ++it) {
 			PDatabase db = COMMITABLE_CAST(Database, *it);
 			if (db->getStatus() == Database::LOADED || db->getStatus() == Database::CHANGED) {
 				computeRights(db);
+			} else {
+				computeDbDataRights(db, server->getSystemDatabase());
 			}
 		}
 	}
@@ -1083,7 +1086,7 @@ void User::updateRightMap(RightMap& rightMap, IdentifierType dbId, IdentifierTyp
 	}
 }
 
-bool User::checkDimsAndCells(CPDatabase db, CPCube cube, set<IdentifierType> &userGroups, CPCubeArea area, bool checkCells, RightsType requiredRight) const
+bool User::checkDimsAndCells(CPDatabase db, CPCube cube, set<IdentifierType> &userGroups, CPCubeArea area, bool checkCells, RightsType requiredRight, bool *defaultUsed) const
 {
 	if ((cube->getType() == SYSTEMTYPE && cube->getCubeType() != Cube::ATTRIBUTES) || (cube->getType() == ATTRIBUTETYPE && checkCells) || cube->getType() == USER_INFOTYPE) {
 		throw ErrorException(ErrorException::ERROR_INTERNAL, "invalid call of User::checkDimsAndCells() method");
@@ -1140,29 +1143,33 @@ bool User::checkDimsAndCells(CPDatabase db, CPCube cube, set<IdentifierType> &us
 				PSet sEmpty(new Set);
 				bool emptyElem = false;
 				CPSet s = area->getDim(i);
-				if (erm[i]) {
-					for (Set::Iterator sit = s->begin(); sit != s->end(); ++sit) {
-						ElemRightsMap::iterator it = erm[i]->find(make_pair(groupId, *sit));
-						if (it != erm[i]->end()) {
-							if (it->second < requiredRight) {
-								enough = false;
-								break;
-							}
-						} else {
-							emptyElem = true;
-							if (checkCells && emptyCell) {
-								sEmpty->insert(*sit);
+				if (s) {
+					if (erm[i]) {
+						for (Set::Iterator sit = s->begin(); sit != s->end(); ++sit) {
+							ElemRightsMap::iterator it = erm[i]->find(make_pair(groupId, *sit));
+							if (it != erm[i]->end()) {
+								if (it->second < requiredRight) {
+									enough = false;
+									break;
+								}
+							} else {
+								emptyElem = true;
+								if (checkCells && emptyCell) {
+									sEmpty->insert(*sit);
+								}
 							}
 						}
+					} else {
+						emptyElem = rtSingle[i] == RIGHT_EMPTY;
+					}
+					if (!emptyElem) {
+						emptyCell = false;
+					}
+					if (checkCells && emptyCell) {
+						emptyArea->insert(i, erm[i] ? sEmpty : s);
 					}
 				} else {
-					emptyElem = rtSingle[i] == RIGHT_EMPTY;
-				}
-				if (!emptyElem) {
-					emptyCell = false;
-				}
-				if (checkCells && emptyCell) {
-					emptyArea->insert(i, erm[i] ? sEmpty : s);
+					checkCells = false; // area is empty
 				}
 			}
 
@@ -1210,9 +1217,12 @@ bool User::checkDimsAndCells(CPDatabase db, CPCube cube, set<IdentifierType> &us
 				}
 			}
 			if (enough && emptyCell) {
+				if (defaultUsed) {
+					*defaultUsed = true;
+				}
 				enough = db->getDefaultRight() >= requiredRight;
 			}
-			if (enough) { // othewise check the next group
+			if (enough) { // otherwise check the next group
 				break;
 			}
 		}
@@ -1220,7 +1230,7 @@ bool User::checkDimsAndCells(CPDatabase db, CPCube cube, set<IdentifierType> &us
 	return enough;
 }
 
-void User::checkAreaRightsComplete(CPDatabase db, CPCube cube, CPCubeArea area, RightSetting& rs, bool isZero, RightsType requiredRight) const
+void User::checkAreaRightsComplete(CPDatabase db, CPCube cube, CPCubeArea area, RightSetting& rs, bool isZero, RightsType requiredRight, bool *defaultUsed) const
 {
 	RightsType roleRight = requiredRight;
 	if (requiredRight == RIGHT_SPLASH) {
@@ -1248,6 +1258,9 @@ void User::checkAreaRightsComplete(CPDatabase db, CPCube cube, CPCubeArea area, 
 	}
 
 	if (enough && rtCube.first == RIGHT_EMPTY && rtDims.first == RIGHT_EMPTY && !rs.checkCells) {
+		if (defaultUsed) {
+			*defaultUsed = true;
+		}
 		enough = db->getDefaultRight() >= requiredRight;
 	}
 
@@ -1279,7 +1292,7 @@ void User::checkAreaRightsComplete(CPDatabase db, CPCube cube, CPCubeArea area, 
 			enough = checkCubeDataRight(db, cube, userGroups, requiredRight);
 		}
 		if (enough) {
-			enough = checkDimsAndCells(db, cube, userGroups, area, rs.checkCells, requiredRight);
+			enough = checkDimsAndCells(db, cube, userGroups, area, rs.checkCells, requiredRight, defaultUsed);
 		}
 	}
 	if (!enough) {
@@ -1304,15 +1317,13 @@ bool User::checkElementRight(ElemRightsMap *erm, const IdentifiersType *userGrou
 		return true;
 	}
 	if (userGroups) {
-		bool empty = true;
+		bool empty = false;
 		for (IdentifiersType::const_iterator git = userGroups->begin(); git != userGroups->end(); ++git) {
 			User::ElemRightsMap::const_iterator it = erm->find(make_pair(*git, elemId));
-			if (it != erm->end()) {
-				if (it->second >= requiredRight) {
-					return true;
-				} else {
-					empty = false;
-				}
+			if (it == erm->end()) {
+				empty = true;
+			} else if (it->second >= requiredRight) {
+				return true;
 			}
 		}
 		return empty;
@@ -1356,8 +1367,11 @@ RightsType User::getElementRight(IdentifierType dbId, IdentifierType dimId, Iden
 	return result;
 }
 
-RightsType User::getCellRight(CPDatabase db, CPCube cube, const IdentifiersType &key, vector<RoleDbCubeRight> &vRights) const
+RightsType User::getCellRight(CPDatabase db, CPCube cube, const IdentifiersType &key, vector<RoleDbCubeRight> &vRights, bool *defaultUsed) const
 {
+	if (defaultUsed) {
+		*defaultUsed = false;
+	}
 	if ((cube->getType() == SYSTEMTYPE && cube->getCubeType() != Cube::ATTRIBUTES) || cube->getType() == USER_INFOTYPE) {
 		return cube->getMinimumAccessRight(CONST_COMMITABLE_CAST(User, shared_from_this()));
 	}
@@ -1413,6 +1427,9 @@ RightsType User::getCellRight(CPDatabase db, CPCube cube, const IdentifiersType 
 			}
 		}
 		if (empty) {
+			if (defaultUsed) {
+				*defaultUsed = true;
+			}
 			rtMin = min(rtMin, db->getDefaultRight());
 		}
 

@@ -490,20 +490,13 @@ string AggregationPlanNode::getXMLContent() const
 	return ss.str();
 }
 
-QuantificationPlanNode::QuantificationPlanNode(PCubeArea dfArea, const vector<PPlanNode> &children, QuantificationType quantType, PCondition cond, int dimIndex, bool isVirt, double numCellsPerElement, double strCellsPerElement, bool calcRules, uint64_t maxCount) :
-	PlanNode(QUANTIFICATION, dfArea, children, 0, PCube()), dfArea(dfArea), quantType(quantType), cond(cond), dimIndex(dimIndex), isVirt(isVirt), numCellsPerElement(numCellsPerElement), strCellsPerElement(strCellsPerElement), calcRules(calcRules), maxCount(maxCount)
+QuantificationPlanNode::QuantificationPlanNode(PCubeArea dfArea, CPCubeArea numericArea, const vector<PPlanNode> &children, QuantificationType quantType, PCondition cond, int dimIndex, bool isVirt, double cellsPerElement, bool calcRules, uint64_t maxCount) :
+	PlanNode(QUANTIFICATION, dfArea, children, 0, PCube()), dfArea(dfArea), numericArea(numericArea), quantType(quantType), cond(cond), dimIndex(dimIndex), isVirt(isVirt), cellsPerElement(cellsPerElement), calcRules(calcRules), maxCount(maxCount)
 {
 }
-
-#ifdef ENABLE_GPU_SERVER
-QuantificationPlanNode::QuantificationPlanNode(PCubeArea dfArea, const vector<PPlanNode> &children, QuantificationType quantType, PCondition cond, int dimIndex, bool isVirt, double numCellsPerElement, double strCellsPerElement, bool calcRules, CPAggregationMaps aggregationMaps, uint64_t maxCount) :
-    PlanNode(QUANTIFICATION, dfArea, children, 0, PCube()), dfArea(dfArea), quantType(quantType), cond(cond), dimIndex(dimIndex), isVirt(isVirt), numCellsPerElement(numCellsPerElement), strCellsPerElement(strCellsPerElement), calcRules(calcRules), maxCount(maxCount), aggregationMaps(aggregationMaps)
-{
-}
-#endif
 
 QuantificationPlanNode::QuantificationPlanNode(PCubeArea dfArea, const vector<PPlanNode> &children, int dimIndex, bool isVirt, bool calcRules, uint64_t maxCount) :
-	PlanNode(QUANTIFICATION, dfArea, children, 0, PCube()), dfArea(dfArea), quantType(EXISTENCE), dimIndex(dimIndex), isVirt(isVirt), numCellsPerElement(0), strCellsPerElement(0), calcRules(calcRules), maxCount(maxCount)
+	PlanNode(QUANTIFICATION, dfArea, children, 0, PCube()), dfArea(dfArea), quantType(EXISTENCE), dimIndex(dimIndex), isVirt(isVirt), cellsPerElement(0), calcRules(calcRules), maxCount(maxCount)
 {
 }
 

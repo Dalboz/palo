@@ -282,8 +282,11 @@ void RightsCube::loadCube(PServer server, PDatabase db, bool processJournal)
 	loadCubeIntern(server, db, processJournal, false, true);
 }
 
-void RightsCube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight) const
+void RightsCube::checkAreaAccessRight(CPDatabase db, PUser user, CPCubeArea area, User::RightSetting& rs, bool isZero, RightsType minimumRight, bool *defaultUsed) const
 {
+	if (defaultUsed) {
+		*defaultUsed = false;
+	}
 	if (User::checkUser(user)) {
 		bool enough = getName() != SystemDatabase::NAME_GROUP_DATABASE_CUBE; //only user from admin group can use #_GROUP_DATABASE_DATA cube
 		if (enough && getCubeAccessRight(user) < minimumRight) {

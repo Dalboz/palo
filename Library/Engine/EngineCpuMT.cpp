@@ -238,7 +238,6 @@ void AggregationProcessorMT::aggregate()
 	}
 
 	tp->join(tg);
-	tp->destroyThreadGroup(tg);
 	if (threadStorage) {
 		if (storage) {
 			storageReader = dynamic_cast<ICellMapStream *>(threadStorage.get())->getValues();
@@ -289,7 +288,6 @@ public:
 		pw.reset(worker);
 	}
 	virtual void end() {
-		tp->destroyThreadGroup(tg);
 	}
 	virtual void step() {
 		size_t cnt = worker->cnt;
