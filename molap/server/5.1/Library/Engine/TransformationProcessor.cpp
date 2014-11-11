@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -153,6 +153,7 @@ private:
 	vector<uint32_t> target2Source;
 	vector<uint32_t> source2Target;
 	struct MisplacedDimension {
+		MisplacedDimension() {}
 		MisplacedDimension(int targetOrdinal, int sourceOrdinal, const Set &set) : targetOrdinal(targetOrdinal), sourceOrdinal(sourceOrdinal), setCurrent(set.begin()), setBegin(set.begin()), setEnd(set.end()), set(&set) {}
 		int targetOrdinal;
 		int sourceOrdinal;
@@ -161,12 +162,33 @@ private:
 		Set::Iterator setEnd;
 		const Set *set;
 	};
-	typedef vector<MisplacedDimension> MPDV;
-	MPDV misplacedDimensions;
+	typedef map<int, MisplacedDimension> MPDM;
+	MPDM misplacedDimensions;
 	PStorageBase storage;
 	PProcessorBase cachedInputSP;
 	ProcessorBase *cachedInput;
 };
+
+static ostream& operator<<(ostream& ostr, const IdentifiersType& v)
+{
+	bool first = true;
+	ostr << dec;
+	for (vector<IdentifierType>::const_iterator it = v.begin(); it != v.end(); ++it) {
+		if (!first) {
+			ostr << ",";
+		}
+		if (*it == NO_IDENTIFIER) {
+			ostr << "*";
+		} else {
+			ostr << *it;
+		}
+		first = false;
+	}
+	return ostr;
+}
+
+size_t rearrangeNextCount = 0;
+size_t rearrangeMoveCount = 0;
 
 RearrangeProcessor::RearrangeProcessor(PProcessorBase inputSP, const vector<uint32_t> &dimensionMapping, CPArea targetArea, CPArea sourceArea) :
 		ProcessorBase(true, PEngineBase()), inputSP(inputSP), dimensionMapping(dimensionMapping),
@@ -188,10 +210,10 @@ RearrangeProcessor::RearrangeProcessor(PProcessorBase inputSP, const vector<uint
 		if (*stit) {
 			for (vector<uint32_t>::const_iterator stit2 = source2Target.begin(); stit2 != stit; ++stit2) {
 				if (*stit2 && *stit < *stit2) {
-					int sourceOrdinal = (int)(stit - source2Target.begin());
+					int sourceOrdinal = int(stit - source2Target.begin());
 					int targetOrdinal = *stit - 1;
 					MisplacedDimension mdr(targetOrdinal, sourceOrdinal, *sourceArea->getDim(sourceOrdinal));
-					misplacedDimensions.push_back(mdr);
+					misplacedDimensions[targetOrdinal] = mdr;
 					iterationsCount *= sourceArea->getDim(sourceOrdinal)->size();
 					break;
 				}
@@ -203,26 +225,9 @@ RearrangeProcessor::RearrangeProcessor(PProcessorBase inputSP, const vector<uint
 	}
 }
 
-static ostream& operator<<(ostream& ostr, const IdentifiersType& v)
-{
-	bool first = true;
-	ostr << dec;
-	for (vector<IdentifierType>::const_iterator it = v.begin(); it != v.end(); ++it) {
-		if (!first) {
-			ostr << ",";
-		}
-		if (*it == NO_IDENTIFIER) {
-			ostr << "*";
-		} else {
-			ostr << *it;
-		}
-		first = false;
-	}
-	return ostr;
-}
-
 bool RearrangeProcessor::next()
 {
+	rearrangeNextCount++;
 	if (outKey.empty()) {
 		cacheInput();
 	}
@@ -230,11 +235,11 @@ bool RearrangeProcessor::next()
 		if (!cachedInput) {
 			PArea selectArea(new Area(*sourceArea));
 			// create new reader for current batch
-			for(MPDV::const_iterator mdit = misplacedDimensions.begin(); mdit != misplacedDimensions.end(); ++mdit) {
+			for(MPDM::const_iterator mdit = misplacedDimensions.begin(); mdit != misplacedDimensions.end(); ++mdit) {
 				PSet s(new Set());
-				outKey[mdit->targetOrdinal] = *mdit->setCurrent;
-				s->insert(*mdit->setCurrent);
-				selectArea->insert(mdit->sourceOrdinal, s);
+				outKey[mdit->first] = *mdit->second.setCurrent;
+				s->insert(*mdit->second.setCurrent);
+				selectArea->insert(mdit->second.sourceOrdinal, s);
 			}
 			cachedInputSP = storage->getCellValues(selectArea);
 			cachedInput = cachedInputSP.get();
@@ -247,30 +252,30 @@ bool RearrangeProcessor::next()
 					outKey[*stit-1] = inKey[sourceOrdinal];
 				}
 			}
-			if (Logger::isTrace()) {
-				Logger::trace << "RearrangeProcessor::next() out:" << outKey << " in: " << inKey << endl; // << outKey
-			}
+//			if (Logger::isTrace()) {
+//				Logger::trace << "RearrangeProcessor::next() out:" << outKey << " in: " << inKey << endl; // << outKey
+//			}
 			return true;
 		}
 		cachedInputSP.reset();
 		cachedInput = 0;
 		// iterate over misplacedDimensions
-		MPDV::reverse_iterator mdit = misplacedDimensions.rbegin();
+		MPDM::reverse_iterator mdit = misplacedDimensions.rbegin();
 		while (mdit != misplacedDimensions.rend()) {
-			++mdit->setCurrent;
-			if (mdit->setCurrent != mdit->setEnd) {
-				if (Logger::isTrace()) {
-					Logger::trace << "change at " << (mdit - misplacedDimensions.rbegin()) << endl;
-				}
+			++mdit->second.setCurrent;
+			if (mdit->second.setCurrent != mdit->second.setEnd) {
+//				if (Logger::isTrace()) {
+//					Logger::trace << "change at " << (mdit - misplacedDimensions.rbegin()) << endl;
+//				}
 				break;
 			}
-			mdit->setCurrent = mdit->setBegin;
+			mdit->second.setCurrent = mdit->second.setBegin;
 			++mdit;
 		}
 		if (mdit == misplacedDimensions.rend()) {
-			if (Logger::isTrace()) {
-				Logger::trace << "no more combinations in RearrangeProcessor" << endl;
-			}
+//			if (Logger::isTrace()) {
+//				Logger::trace << "no more combinations in RearrangeProcessor" << endl;
+//			}
 			return false;
 		}
 	}
@@ -279,6 +284,7 @@ bool RearrangeProcessor::next()
 
 bool RearrangeProcessor::move(const IdentifiersType &key, bool *found)
 {
+	rearrangeMoveCount++;
 	if (outKey.empty()) {
 		cacheInput();
 	}
@@ -292,20 +298,22 @@ bool RearrangeProcessor::move(const IdentifiersType &key, bool *found)
 	}
 	bool bulkChanged = !cachedInput;
 
+//	return ProcessorBase::move(key, found);
+
 	// prepare source batch
-	for (MPDV::iterator mdit = misplacedDimensions.begin(); mdit != misplacedDimensions.end(); ++mdit) {
+	for (MPDM::iterator mdit = misplacedDimensions.begin(); mdit != misplacedDimensions.end(); ++mdit) {
 		Set::Iterator newCurrent;
-		if (key[mdit->targetOrdinal]) {
-			newCurrent = mdit->set->find(key[mdit->targetOrdinal]);
-			if (newCurrent == mdit->setEnd) {
+		if (key[mdit->first]) {
+			newCurrent = mdit->second.set->find(key[mdit->first]);
+			if (newCurrent == mdit->second.setEnd) {
 				// problem
 				throw ErrorException(ErrorException::ERROR_INTERNAL, "RearrangeProcessor::move(): key outside the area.");
 			}
 		} else {
-			newCurrent = mdit->setBegin;
+			newCurrent = mdit->second.setBegin;
 		}
-		if (newCurrent != mdit->setCurrent) {
-			mdit->setCurrent = newCurrent;
+		if (newCurrent != mdit->second.setCurrent) {
+			mdit->second.setCurrent = newCurrent;
 			bulkChanged = true;
 		}
 	}
@@ -316,11 +324,11 @@ bool RearrangeProcessor::move(const IdentifiersType &key, bool *found)
 		}
 		PArea selectArea(new Area(*sourceArea));
 		// create new reader for current batch
-		for(MPDV::const_iterator mdit = misplacedDimensions.begin(); mdit != misplacedDimensions.end(); ++mdit) {
+		for(MPDM::const_iterator mdit = misplacedDimensions.begin(); mdit != misplacedDimensions.end(); ++mdit) {
 			PSet s(new Set());
-			outKey[mdit->targetOrdinal] = *mdit->setCurrent;
-			s->insert(*mdit->setCurrent);
-			selectArea->insert(mdit->sourceOrdinal, s);
+			outKey[mdit->first] = *mdit->second.setCurrent;
+			s->insert(*mdit->second.setCurrent);
+			selectArea->insert(mdit->second.sourceOrdinal, s);
 		}
 		cachedInputSP = storage->getCellValues(selectArea);
 		cachedInput = cachedInputSP.get();
@@ -328,9 +336,9 @@ bool RearrangeProcessor::move(const IdentifiersType &key, bool *found)
 	if (!cachedInput->move(moveToSourceKey, found)) {
 		bool result = next();
 		// nothing found in this bulk
-		if (Logger::isTrace()) {
-			Logger::trace << "RearrangeProcessor::move() out:" << (result ? outKey : EMPTY_KEY) << " move to key: " << key << endl; // << outKey
-		}
+//		if (Logger::isTrace()) {
+//			Logger::trace << "RearrangeProcessor::move() out:" << (result ? outKey : EMPTY_KEY) << " move to key: " << key << endl; // << outKey
+//		}
 		return result;
 	}
 	int sourceOrdinal = 0;
@@ -340,9 +348,9 @@ bool RearrangeProcessor::move(const IdentifiersType &key, bool *found)
 			outKey[*stit-1] = inKey[sourceOrdinal];
 		}
 	}
-	if (Logger::isTrace()) {
-		Logger::trace << "RearrangeProcessor::move() out:" << outKey << " move to key: " << key << endl; // << outKey
-	}
+//	if (Logger::isTrace()) {
+//		Logger::trace << "RearrangeProcessor::move() out:" << outKey << " move to key: " << key << endl; // << outKey
+//	}
 	return true;
 }
 
@@ -372,8 +380,8 @@ const GpuBinPath &RearrangeProcessor::getBinKey() const
 
 void RearrangeProcessor::reset()
 {
-	for(MPDV::iterator mdit = misplacedDimensions.begin(); mdit != misplacedDimensions.end(); ++mdit) {
-		mdit->setCurrent = mdit->setBegin;
+	for(MPDM::iterator mdit = misplacedDimensions.begin(); mdit != misplacedDimensions.end(); ++mdit) {
+		mdit->second.setCurrent = mdit->second.setBegin;
 	}
 	cachedInputSP.reset();
 	cachedInput = 0;
@@ -387,187 +395,12 @@ void RearrangeProcessor::cacheInput()
 	storage->setCellValue(inStream);
 	if (Logger::isTrace()) {
 		Logger::trace << "RearrangeProcessor cached " << storage->valuesCount() << " values" << endl;
-//		PCellStream cachedVals = storage->getCellValues(PArea());
-//		while (cachedVals->next()) {
-//			Logger::trace << cachedVals->getKey() << " " << cachedVals->getDouble() << endl;
-//		}
 	}
 }
 
-bool TransformationProcessor::move(const IdentifiersType &key, bool *found)
-{
-//	Logger::debug << this << " M " << key << " from " << getKey() << endl;
-	// if the key is already reached
-	size_t firstOutputChange = key.size();
-	if (nextResult) {
-		const IdentifiersType &currentKey = getKey();
-		int diff = 0;
-		size_t size = key.size();
-		for (size_t i = 0; i < size; i++) {
-			if (currentKey[i] < key[i]) {
-				diff = -1;
-				firstOutputChange = i;
-				break;
-			} else if (currentKey[i] > key[i]) {
-				firstOutputChange = i;
-				diff = 1;
-				break;
-			}
-		}
-		if (diff >= 0) {
-			if (found) {
-				*found = diff == 0;
-			}
-			if (Logger::isTrace()) {
-				Logger::trace << "TransformationProcessor::move() out:" << currentKey << " move to key: " << key << endl; // << outKey
-			}
-			return true;
-		}
-	}
-
-	// generate new start for input
-	IdentifiersType nextMoveToInKey(moveToInKey);
-	size_t firstSrcDim = key.size();
-	// transform the key here
-	for (DimsMappingType::const_iterator transIt = dimMapping.begin(); transIt != dimMapping.end(); ++transIt) {
-		nextMoveToInKey[transIt->second] = key[transIt->first];
-		firstSrcDim = min(transIt->first, firstSrcDim);
-	}
-	int relativeToInput = lastInKey.empty() ? 1 : CellValueStream::compare(nextMoveToInKey, lastInKey);
-
-//	return CellValueStream::move(key, found);
-
-	bool nextInput = false;
-	bool inputFound = false;
-	if (relativeToInput < 0) {
-		// move back
-		childSP->reset();
-	} else {
-		// move forward
-	}
-	if (!child) {
-		if (!childSP) {
-			childSP = createProcessor(transformationPlanNode->getChildren()[0], true);
-			if (transformationPlanNode->getDimMapping().size()) {
-				childSP = PProcessorBase(new RearrangeProcessor(childSP, transformationPlanNode->getDimMapping(), transformationPlanNode->getArea(), transformationPlanNode->getChildren()[0]->getArea()));
-			}
-		}
-		child = childSP.get();
-	}
-
-	nextInput = childSP->move(nextMoveToInKey, &inputFound);
-	// if input value found
-	if (nextInput) {
-		const IdentifiersType &foundInputKey = child->getKey();
-
-		ExpansionRangesType::iterator eRIt;
-		for (eRIt = expansionRanges.begin(); eRIt != expansionRanges.end(); ++eRIt) {
-			if (firstOutputChange <= eRIt->first.first) {
-				moveToInKey = eRIt->second;
-				while (++eRIt != expansionRanges.end()) {
-					eRIt->second = moveToInKey;
-				}
-				break;
-			}
-		}
-
-		lastInKey = foundInputKey;
-		// compare found input value with requested and reset part of the generated output key iterators
-		size_t firstOutputChange = key.size();
-		for (DimsMappingType::const_iterator transIt = dimMapping.begin(); transIt != dimMapping.end(); ++transIt) {
-			if (foundInputKey[transIt->second] != key[transIt->first]) {
-				firstOutputChange = min(transIt->first, firstOutputChange);
-			}
-			outKey[transIt->first] = foundInputKey[transIt->second];
-		}
-
-		for (size_t targetDim = 0; targetDim < key.size(); targetDim++) {
-			if (expansions[targetDim].first) {
-				if (targetDim <= firstOutputChange) {
-					// find the requested element in the set
-					expansions[targetDim].second = expansions[targetDim].first->find(key[targetDim]);
-					if (expansions[targetDim].second == expansions[targetDim].first->end()) {
-						// key outside the selection?
-						throw ErrorException(ErrorException::ERROR_INTERNAL, "TransformationProcessor::move(): key outside the area.");
-					}
-					outKey[targetDim] = key[targetDim];
-				} else {
-					// get beginning of the set
-					expansions[targetDim].second = expansions[targetDim].first->begin();
-					outKey[targetDim] = *expansions[targetDim].second;
-				}
-			}
-		}
-
-		if (found) {
-			*found = CellValueStream::compare(outKey, key) == 0;
-		}
-		if (Logger::isTrace()) {
-			Logger::trace << "TransformationProcessor::move() out:" << outKey << " move to key: " << key << endl; // << outKey
-		}
-		nextResult = true;
-		return true;
-	} else {
-		// no input found
-		if (found) {
-			*found = false;
-		}
-		if (expansionRanges.size() && expansionRanges[0].first.first < firstSrcDim) {
-			size_t dim;
-			for (dim = expansionRanges[0].first.first; dim <= expansionRanges[0].first.second; dim++) {
-				if (expansions[dim].first) {
-					expansions[dim].second = expansions[dim].first->find(key[dim]);
-					if (expansions[dim].second == expansions[dim].first->end()) {
-						throw ErrorException(ErrorException::ERROR_INTERNAL, "TransformationProcessor::move(): key outside the area.");
-					}
-					outKey[dim] = *expansions[dim].second;
-				}
-			}
-			for (; dim < outKey.size(); dim++) {
-				if (expansions[dim].first) {
-					expansions[dim].second = expansions[dim].first->begin();
-					outKey[dim] = *expansions[dim].second;
-				}
-			}
-			for (int expandDim = expansionRanges[0].first.second; expandDim >= 0; expandDim--) {
-				if (expansions[expandDim].first) {
-					++expansions[expandDim].second;
-					if (expansions[expandDim].second == expansions[expandDim].first->end()) {
-						expansions[expandDim].second = expansions[expandDim].first->begin();
-						outKey[expandDim] = *expansions[expandDim].second;
-						if (expandDim == 0) {
-							break;
-						}
-						// continue to next dimension
-					} else {
-						ExpansionRangesType::iterator eRIt = expansionRanges.begin();
-						moveToInKey = eRIt->second;
-						while (++eRIt != expansionRanges.end()) {
-							eRIt->second = moveToInKey;
-						}
-						outKey[expandDim] = *expansions[expandDim].second;
-						childSP->reset();
-						child = 0;
-						bool res = next();
-						if (Logger::isTrace()) {
-							Logger::trace << "TransformationProcessor::move() out:" << (res ? outKey : EMPTY_KEY) << " move to key: " << key << endl; // << outKey
-						}
-						return res;
-					}
-				}
-			}
-		}
-		nextResult = false;
-		if (Logger::isTrace()) {
-			Logger::trace << "TransformationProcessor::move() out:" << EMPTY_KEY << " move to key: " << key << endl; // << outKey
-		}
-		return false;
-	}
-}
-
-TransformationProcessor::TransformationProcessor(PEngineBase engine, CPPlanNode node) :
-		ProcessorBase(true, engine), node(node), transformationPlanNode(dynamic_cast<const TransformationPlanNode *>(node.get())),
-		pathTranslator(node->getArea()->getPathTranslator()), nextResult(false)
+TransformationProcessor::TransformationProcessor(PEngineBase engine, CPPlanNode node, bool sortedOutput)
+ : ProcessorBase(sortedOutput, engine), node(node), transformationPlanNode(dynamic_cast<const TransformationPlanNode *>(node.get())),
+   pathTranslator(node->getArea()->getPathTranslator()), nextResult(false)
 {
 	CPArea targetArea = transformationPlanNode->getArea();
 	vector<uint32_t> target2Source;
@@ -575,9 +408,11 @@ TransformationProcessor::TransformationProcessor(PEngineBase engine, CPPlanNode 
 	CPArea sourceArea = transformationPlanNode->getChildren()[0]->getArea();
 	size_t targetDimOrd = 0;
 
+	targetStartKey = *targetArea->pathBegin();
+
 	const vector<uint32_t> &dimensionMapping = transformationPlanNode->getDimMapping();
 	if (dimensionMapping.size()) {
-		moveToInKey.resize(targetArea->dimCount());
+		sourceStartKey = targetStartKey;
 
 		target2Source.resize(targetArea->dimCount());
 		vector<uint32_t>::const_iterator dmit = dimensionMapping.begin();
@@ -589,11 +424,13 @@ TransformationProcessor::TransformationProcessor(PEngineBase engine, CPPlanNode 
 			}
 		}
 	} else {
-		moveToInKey = *sourceArea->pathBegin();
+		sourceStartKey = *sourceArea->pathBegin();
 	}
+	moveToInKey = sourceStartKey;
 
+	mappedDimensions.resize(targetArea->dimCount());
 	outKey.resize(targetArea->dimCount());
-	size_t lastExpand = 0;
+	expansions.resize(targetArea->dimCount());
 	size_t dimOrdinal;
 	for (dimOrdinal = 0; targetDimOrd < targetArea->dimCount(); targetDimOrd++, dimOrdinal++) {
 //		if (*targetSet != *sourceSet && **targetSet != **sourceSet) {
@@ -625,24 +462,17 @@ TransformationProcessor::TransformationProcessor(PEngineBase engine, CPPlanNode 
 		if (targetSet->size() == 1) {
 			// target restricted to 1 element
 			outKey[dimOrdinal] = *targetSet->begin();
-			expansions.push_back(pair<const Set *, Set::Iterator>((const Set *)0, Set::Iterator()));
 		} else if (sourceSet && (targetSet == sourceSet || *targetSet == *sourceSet)) {
 			// target dimension is source dimension
-			dimMapping.push_back(DimMapping(dimOrdinal, dimOrdinal));
-			expansions.push_back(pair<const Set *, Set::Iterator>((const Set *)0, Set::Iterator()));
-			lastExpand = 0;
+			dimMapping.push_back(dimOrdinal);
+			mappedDimensions[targetDimOrd] = true;
 		} else if ((!sourceSet || sourceSet->size() == 1) && targetSet->size() > 1) {
 			// expansion
-			if (!lastExpand) {
-				expansionRanges.push_back(make_pair(make_pair(dimOrdinal, dimOrdinal), moveToInKey));
-			} else {
-				expansionRanges.back().first.second = dimOrdinal;
-			}
 			Set::Iterator setBegin = targetSet->begin();
-			expansions.push_back(pair<const Set *, Set::Iterator>(targetSet.get(), setBegin));
+			expansions[dimOrdinal]=ExpansionState(targetSet.get(), &moveToInKey);
 			outKey[dimOrdinal] = *setBegin;
-			lastExpand = dimOrdinal;
 		} else {
+			// more than one element in target - not identical to source, source has more than one element -> mapping N:M
 			const SetMultimaps *setMultiMaps = transformationPlanNode->getSetMultiMaps();
 			if (!setMultiMaps || setMultiMaps->empty() || !setMultiMaps->at(dimOrdinal)) {
 				// unsupported transformation
@@ -650,138 +480,347 @@ TransformationProcessor::TransformationProcessor(PEngineBase engine, CPPlanNode 
 				throw ErrorException(ErrorException::ERROR_INTERNAL, "Unsupported transformation type in TransformationProcessor!");
 			} else {
 				// multimapping in this dimension
-				dimMapping.push_back(DimMapping(dimOrdinal, dimOrdinal));
-				lastExpand = 0;
+				dimMapping.push_back(dimOrdinal);
 			}
 		}
-	}
-	if (lastExpand) {
-		// extend last expansionRange to the end
-		expansionRanges.back().first.second = dimOrdinal-1;
 	}
 	factor = transformationPlanNode->getFactor();
 	childSP.reset();
 	child = 0;
+//	if (Logger::isTrace()) {
+//		Logger::trace << this << " TransformationProcessor created" << endl; // << outKey
+//	}
+}
+
+bool TransformationProcessor::nextIntern(int dimStart)
+{
+	int dim;
+	bool calledFromMove;
+	if (dimStart == int(outKey.size())) {
+		dim = dimStart-1;
+		calledFromMove = false;
+	} else {
+		dim = dimStart;
+		calledFromMove = true;
+	}
+	bool result = false;
+	while (dim >= -1) {
+		if (dim == -1 || mappedDimensions[dim]) {
+			// mapped dimension
+//			int restartDim = dim;
+			bool nextInput;
+			int firstChangedInputDimension = -1;
+			const IdentifiersType *foundInput = 0;
+			if (!child) {
+				if (!childSP) {
+					childSP = createProcessor(transformationPlanNode->getChildren()[0], true);
+					if (transformationPlanNode->getDimMapping().size()) {
+						childSP = PProcessorBase(new RearrangeProcessor(childSP, transformationPlanNode->getDimMapping(), transformationPlanNode->getArea(), transformationPlanNode->getChildren()[0]->getArea()));
+					}
+				}
+				child = childSP.get();
+				bool found;
+				//0, 8, 365, 32, 31, 5, 0, 0, 0
+//				if (lastInKey.size() == 9 && lastInKey[0] == 0 && lastInKey[1] == 8 && lastInKey[2] == 365 && lastInKey[3] == 32 && lastInKey[4] == 31 && lastInKey[5] == 5 && lastInKey[6] == 0 && lastInKey[7] == 0 && lastInKey[8] == 0) {
+//					int breakhere = 1;
+//				}
+				nextInput = child->move(moveToInKey, &found);
+				if (nextInput) {
+					foundInput = &child->getKey();
+					int relativeReqInput = foundInput->compare(moveToInKey);
+					if (relativeReqInput < 0) {
+						throw ErrorException(ErrorException::ERROR_INTERNAL, "TransformationProcessor::next() shouldn't happen #3!");
+					} else if (relativeReqInput == 0) {
+						// ok
+						firstChangedInputDimension = outKey.size();
+						if (!found) {
+							throw ErrorException(ErrorException::ERROR_INTERNAL, "TransformationProcessor::next() shouldn't happen #4!");
+						}
+					} else {
+						if (nextResult) {
+							firstChangedInputDimension = relativeReqInput-1;
+						} else {
+							// first value -> do not check if previous have to be repeated
+							firstChangedInputDimension = dim;
+						}
+					}
+					if (!nextResult) { // first move or next
+						moveToInKey = *foundInput;
+						for (int expandDim = dim; expandDim < int(outKey.size()); expandDim++) {
+							if (expandDim >=0 && expansions[expandDim].set) {
+								expansions[expandDim].resetKey = moveToInKey;
+							}
+						}
+					}
+				} else {
+					if (nextResult) {
+						if (calledFromMove) {
+							// move called - repeat anything?
+							firstChangedInputDimension = -1;
+						} else {
+							// regular next
+							throw ErrorException(ErrorException::ERROR_INTERNAL, "TransformationProcessor::next() shouldn't happen #2!");
+						}
+					} else {
+						// no values in the child
+						firstChangedInputDimension = dim;
+					}
+				}
+			} else {
+				nextInput = child->next();
+				if (nextInput) {
+					foundInput = &child->getKey();
+					int relativeToLastInput = foundInput->compare(lastInKey);
+					if (relativeToLastInput <= 0) {
+						throw ErrorException(ErrorException::ERROR_INTERNAL, "TransformationProcessor::next() shouldn't happen!");
+					}
+					firstChangedInputDimension = relativeToLastInput-1;
+				}
+			}
+
+			bool restart = false;
+			while (--dim >= firstChangedInputDimension) {
+				if (dim < 0) {
+					break;
+				}
+				if (expansions[dim].set) {
+					if (++expansions[dim].sit == expansions[dim].set->end()) {
+						// last iteration in the expanded dimension
+						expansions[dim].sit = expansions[dim].set->begin();
+						outKey[dim] = *expansions[dim].sit;
+						if (foundInput) {
+							for (int expandDim = dim; expandDim < int(outKey.size()); expandDim++) {
+								if (expansions[expandDim].set) {
+									expansions[expandDim].resetKey = *foundInput;
+								}
+							}
+						}
+						// check higher dimensions
+					} else {
+						// another expansion possible
+						outKey[dim] = *expansions[dim].sit;
+						// restart input
+						if (calledFromMove) {
+							for (MappedDimsType::const_iterator transIt = dimMapping.begin(); transIt != dimMapping.end(); ++transIt) {
+								if (*transIt > dim) {
+									moveToInKey[*transIt] = sourceStartKey[*transIt];
+								} else if (*transIt <= firstChangedInputDimension) {
+									// keep moveToInKey[*transIt]
+								}
+							}
+							for (int mapDim = 0; mapDim < dim; mapDim++) {
+								if (mappedDimensions[mapDim]) {
+									if (expansions[dim].resetKey[mapDim] > moveToInKey[mapDim]) {
+										for (;mapDim < dim; mapDim++) {
+											moveToInKey[mapDim] = expansions[dim].resetKey[mapDim];
+										}
+									}
+								}
+							}
+						} else {
+							moveToInKey = expansions[dim].resetKey;
+						}
+						for (int expandDim = dim+1; expandDim < int(outKey.size()); expandDim++) {
+							if (expansions[expandDim].set) {
+								expansions[expandDim].resetKey = moveToInKey;
+								expansions[expandDim].sit = expansions[expandDim].set->begin();
+								outKey[expandDim] = *expansions[expandDim].sit;
+							}
+						}
+						child->reset();
+						child = 0;
+						nextInput = false;
+						dim--;
+						restart = true;
+						break;
+					}
+				}
+			}
+			if (nextInput) {
+				for (MappedDimsType::const_iterator transIt = dimMapping.begin(); transIt != dimMapping.end(); ++transIt) {
+					outKey[*transIt] = (*foundInput)[*transIt];
+				}
+				lastInKey = *foundInput;
+				if (calledFromMove) {
+					for (int expandDim = firstChangedInputDimension+1; expandDim < int(outKey.size()); expandDim++) {
+						if (expansions[expandDim].set) {
+							expansions[expandDim].resetKey = moveToInKey;
+							expansions[expandDim].sit = expansions[expandDim].set->begin();
+							outKey[expandDim] = *expansions[expandDim].sit;
+						}
+					}
+				}
+				result = true;
+			}
+			if (!restart) {
+				break;
+			}
+		} else if (child && expansions[dim].set) {
+			// expanded dimension
+			if (++expansions[dim].sit != expansions[dim].set->end()) {
+				outKey[dim] = *expansions[dim].sit;
+				result = true;
+				break;
+			}
+			// last element in the expanded dimension=> reset
+			expansions[dim].sit = expansions[dim].set->begin();
+			outKey[dim] = *expansions[dim].sit;
+			dim--;
+		} else {
+			// single target element
+			// nothing to do
+			dim--;
+		}
+	}
+	nextResult = result;
+//	if (Logger::isTrace()) {
+//		if (result) {
+//			Logger::trace << this << " TransformationProcessor::next() out:" << outKey << endl; // << outKey
+//		} else {
+//			Logger::trace << this << " TransformationProcessor::next() end." << endl; // << outKey
+//		}
+//	}
+	return result;
 }
 
 bool TransformationProcessor::next()
 {
-	bool hasNext = true;
-	bool newStart = false;
+//	if (tproc == this) {
+//		int breakhere = 1;
+//	}
+	bool result = nextIntern(outKey.size());
+	nextResult = result;
+//	if (Logger::isTrace()) {
+//		if (result) {
+//			Logger::info << this << " TransformationProcessor::next() out:" << outKey << endl; // << outKey
+//		} else {
+//			Logger::info << this << " TransformationProcessor::next() end." << endl; // << outKey
+//		}
+//	}
+	return result;
+}
 
-	if (!child) {
-		if (!childSP) {
-			childSP = createProcessor(transformationPlanNode->getChildren()[0], true);
-			if (transformationPlanNode->getDimMapping().size()) {
-				childSP = PProcessorBase(new RearrangeProcessor(childSP, transformationPlanNode->getDimMapping(), transformationPlanNode->getArea(), transformationPlanNode->getChildren()[0]->getArea()));
+bool TransformationProcessor::move(const IdentifiersType &key, bool *found)
+{
+	bool result = false;
+
+//	if (tproc == this) {
+//		int breakhere = 1;
+//	}
+	// 12,8,0,0,0,0,915,91
+//	if ((key.size() == 8 && key[0] == 12 && key[1] == 8 && key[2] == 0 && key[3] == 0 && key[4] == 0 && key[5] == 0 && key[6] == 915 && key[7] == 91 /*&& key[8] == 0*/) /*&&
+//		(outKey.size() == 9 && outKey[0] == 0 && outKey[1] == 8 && outKey[2] == 317 && outKey[3] == 197 && outKey[4] == 30 && outKey[5] == 4 && outKey[6] == 0 && outKey[7] == 0 && outKey[8] == 0)*/) {
+//		int breakhere = 1;
+//	}
+
+#ifdef undefined
+	result = CellValueStream::move(key, found);
+#else
+	int dim = outKey.size()-1;;
+//	size_t firstOutputChange = key.size();
+	bool outOfBoundaries = false;
+	if (nextResult) {
+		// check if not on the position or after
+		const IdentifiersType &currentKey = getKey();
+		int diff = currentKey.compare(key);
+		if (diff >= 0) {
+			if (found) {
+				*found = diff == 0;
 			}
-		}
-		child = childSP.get();
-		bool found;
-		hasNext = child->move(moveToInKey, &found);
-		if (hasNext && !found) {
-			moveToInKey = child->getKey();
-		}
-		lastInKey.clear();
-		newStart = true;
-	} else {
-		// TODO: -jj- expand tail
-		hasNext = child->next();
-	}
-
-	size_t nextMoveToFirstDim = outKey.size();
-	const IdentifiersType *inKey = 0;
-
-	if (hasNext || !newStart) {
-		if (hasNext) {
-			inKey = &child->getKey();
-			const IdentifiersType compareToKey = lastInKey.empty() ? moveToInKey : lastInKey;
-			// find first changed dimension of inKey
-			for (size_t dim = 0; dim < inKey->size(); dim++) {
-				if ((*inKey)[dim] != compareToKey[dim]) {
-					nextMoveToFirstDim = dim;
-					break;
-				}
-			}
+			result = true;
 		} else {
-			nextMoveToFirstDim = 0;
+//			firstOutputChange = -diff-1;
 		}
-
-		// compare nextMoveToFirstDim to expansionRanges
-		ExpansionRangesType::iterator eRFirstIt;
-		for (eRFirstIt = expansionRanges.begin(); eRFirstIt != expansionRanges.end(); ++eRFirstIt) {
-			if (nextMoveToFirstDim <= eRFirstIt->first.first) {
-				break;
-			}
-		}
-		if (eRFirstIt != expansionRanges.end()) {
-			ExpansionRangesType::iterator eRIt = --expansionRanges.end();
-			for (;;--eRIt) {
-				// expand ranges from eRFirstIt to the end of expansionRanges in reverse order
-				for (size_t expandDim = eRIt->first.second; expandDim >= eRIt->first.first; expandDim--) {
-					if (expansions[expandDim].first) {
-						++expansions[expandDim].second;
-						if (expansions[expandDim].second == expansions[expandDim].first->end()) {
-							expansions[expandDim].second = expansions[expandDim].first->begin();
-							outKey[expandDim] = *expansions[expandDim].second;
-							if (expandDim == 0) {
-								nextResult = false;
-								return false;
-							}
-							// continue to next dimension
-						} else {
-							moveToInKey = eRIt->second;
-							while (++eRIt != expansionRanges.end()) {
-								eRIt->second = moveToInKey;
-							}
-							outKey[expandDim] = *expansions[expandDim].second;
-//							if (inKey != moveToInKey) {
-								// restart
-								childSP->reset();
-								child = 0;
-//							} else {
-								// TODO: -jj- optimize - do not reset child processor - just use the last key and value
-//							}
-							return next();
+	}
+	if (!result) {
+		dim = -1;
+		size_t outOfBoundariesDim = key.size();
+		for (size_t verifyDim = 0; verifyDim < key.size(); verifyDim++) {
+			IdentifierType reqElem = verifyDim > outOfBoundariesDim ? targetStartKey[verifyDim] : key[verifyDim];
+			if (mappedDimensions[verifyDim]) {
+				// mapped dimension
+				if (outKey[verifyDim] != reqElem && dim == -1) {
+					dim = int(verifyDim); // main loop starts from last mapped dimension
+				}
+				moveToInKey[verifyDim] = reqElem;
+			} else {
+				if (verifyDim > outOfBoundariesDim) {
+					if (expansions[verifyDim].set) {
+						expansions[verifyDim].sit = expansions[verifyDim].set->begin();
+					}
+					outKey[verifyDim] = reqElem;
+				} else {
+					if (expansions[verifyDim].set) {
+						// expanded target
+						expansions[verifyDim].sit = expansions[verifyDim].set->lowerBound(reqElem);
+						if (expansions[verifyDim].sit == expansions[verifyDim].set->end()) {
+							// no such value in area
+							outOfBoundaries = true;
+							break;
+						}
+						outKey[verifyDim] = *expansions[verifyDim].sit;
+					} else {
+						// single target
+						if (outKey[verifyDim] > key[verifyDim]) {
+							outOfBoundariesDim = verifyDim;
+						} else if (outKey[verifyDim] < key[verifyDim]) {
+							// no such value in area
+							outOfBoundaries = true;
+							break;
 						}
 					}
 				}
-				if (eRIt == eRFirstIt) {
-					break;
-				}
 			}
-			if (!hasNext) {
-				nextResult = false;
-				return false;
-			}
-			if (eRIt == eRFirstIt) {
-				// dimensions expanded completely - continue with current value
-				moveToInKey = *inKey;
-				eRIt->second = moveToInKey;
-				while (++eRIt != expansionRanges.end()) {
-					eRIt->second = moveToInKey;
+		}
+		for (size_t verifyDim = 0; verifyDim < key.size(); verifyDim++) {
+			if (expansions[verifyDim].set) {
+				for (size_t mapDim = 0; mapDim < verifyDim; mapDim++) {
+					expansions[verifyDim].resetKey[mapDim] = moveToInKey[mapDim];
 				}
 			}
 		}
 
-		if (!hasNext) {
-			nextResult = false;
-			return false;
+		if (childSP) {
+			int relativeToInput = moveToInKey.compare(lastInKey);
+			if (!relativeToInput) {
+				// exact input
+				if (found) {
+					*found = outOfBoundariesDim == key.size();
+				}
+				result = true;
+			} else {
+				if (relativeToInput < 0) {
+					// move back
+					childSP->reset();
+				} else {
+					// move forward
+				}
+				child = 0;
+			}
 		}
-		// transform the key here
-		for (DimsMappingType::const_iterator transIt = dimMapping.begin(); transIt != dimMapping.end(); ++transIt) {
-			outKey[transIt->first] = (*inKey)[transIt->second];
-		}
-		lastInKey = *inKey;
-		// if the sub-area needs to be replicated
-//		if (printOut) {
-//			Logger::info << "out " << getKey() << " " << getDouble() << " " << moveToInKey << endl;
-//		}
-		nextResult = true;
-		return true;
 	}
-	nextResult = false;
-	return false;
+
+	if (!result && !outOfBoundaries) {
+		result = nextIntern(dim);
+	}
+	if (result && found) {
+		*found = outKey == key;
+	}
+	nextResult = result;
+#endif
+//	if (Logger::isTrace()) {
+//		if (result) {
+//			Logger::info << this << " TransformationProcessor::move() out:" << outKey << " for " << key <<  endl; // << outKey
+//			int diff = outKey.compare(key);
+//			if (diff < 0) {
+//				Logger::info << this << " TransformationProcessor::move() out is invalid!" << endl; // << outKey
+//				throw ErrorException(ErrorException::ERROR_INTERNAL, "TransformationProcessor::move() out is invalid!");
+//			}
+//		} else {
+//			Logger::info << this << " TransformationProcessor::move() end." << " for " << key << endl; // << outKey
+//		}
+//	}
+	return result;
 }
 
 const CellValue &TransformationProcessor::getValue()
@@ -825,15 +864,64 @@ void TransformationProcessor::reset()
 {
 	if (child) {
 		child->reset();
+		child = 0;
 	}
-//	lastInKey.clear();
+	for (size_t dim = 0; dim < outKey.size(); dim++) {
+		if (expansions[dim].set) {
+			expansions[dim].sit = expansions[dim].set->begin();
+			expansions[dim].resetKey = sourceStartKey;
+		}
+	}
+	outKey = targetStartKey;
+	lastInKey.clear();
 	nextResult = false;
+//	Logger::info << this << " TransformationProcessor::reset" << endl; // << outKey
 }
 
-TransformationMapProcessor::TransformationMapProcessor(PEngineBase engine, CPPlanNode node) : TransformationProcessor(engine, node), multiMaps(0), endOfMultiMapping(true), node(node)
+TransformationMapProcessor::TransformationMapProcessor(PEngineBase engine, CPPlanNode node, bool sortedOutput)
+: TransformationProcessor(engine, node, sortedOutput), multiMaps(0), endOfMultiMapping(true), node(node), brokenOrder(false)
 {
 	const TransformationPlanNode *transformationPlanNode = dynamic_cast<const TransformationPlanNode *>(node.get());
 	multiMaps = transformationPlanNode->getSetMultiMaps();
+	if (sortedOutput && multiMaps) {
+		// test the same sorting order in source and target area
+		for (SetMultimaps::const_iterator smmit = multiMaps->begin(); !brokenOrder && smmit != multiMaps->end(); ++smmit) {
+			if (!*smmit) {
+				continue;
+			}
+			const SetMultimap &smm = **smmit;
+			IdentifierType lastMax = 0;
+			IdentifierType currentId = NO_IDENTIFIER;
+			IdentifierType currentMax = 0;
+			for (SetMultimap::const_iterator smit = smm.begin(); !brokenOrder && smit != smm.end(); ++smit) {
+				if (smit->first != currentId) {
+					currentId = smit->first;
+					lastMax = currentMax;
+					currentMax = smit->second;
+				} else if (smit->second > currentMax) {
+					currentMax = smit->second;
+				}
+				if (smit->second < lastMax) {
+					Logger::debug << "TransformationMapProcessor: source and target area has different sorting!" << endl;
+					brokenOrder = true;
+					break;
+				}
+			}
+		}
+	}
+}
+
+PProcessorBase TransformationMapProcessor::getSortedResults()
+{
+	PProcessorBase result;
+	if (multiMaps) {
+		boost::shared_ptr<ICellMap<CellValue> > cellMap = CreateCellMap<CellValue>(multiMaps->size());
+		while (next()) {
+			cellMap->set(getKey(), getValue());
+		}
+		result = cellMap->getValues();
+	}
+	return result;
 }
 
 bool TransformationMapProcessor::next()

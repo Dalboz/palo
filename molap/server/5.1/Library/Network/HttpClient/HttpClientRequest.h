@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public

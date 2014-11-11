@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -107,11 +107,13 @@ public:
 				if (found) {
 					*found = false;
 				}
+				end = true;
 				return keyCmp < 0; //return true if key < this->key, false if key > this->key
 			} else {
 				if (found) {
 					*found = true;
 				}
+				end = true;
 				return true;
 			}
 		}
@@ -144,7 +146,7 @@ ValueCache::QueryCache::~QueryCache()
 		currAreas.reset(new CachedAreas(*currAreas));
 		if (inserted->size()) {
 			storage = COMMITABLE_CAST(StorageCpu, storage->copy());
-			storage->commitExternalChanges(false, dynamic_cast<ICellMapStream *>(inserted.get())->getValues(), inserted->size(), false);
+			storage->commitExternalChanges(false, inserted->getValues(), inserted->size(), false);
 			storage->merge(CPCommitable(), PCommitable());
 		}
 
@@ -210,14 +212,14 @@ PProcessorBase ValueCache::QueryCache::getFilteredValues(CPArea area, const Cell
 		PProcessorBase s(new SingleCellFilter(key, found ? CellValue(val) : (defaultValue ? *defaultValue : CellValue()), !found && !defaultValue));
 		return s;
 	} else {
-		return PProcessorBase(new FilteredCellMapStream(dynamic_cast<ICellMapStream *>(inserted.get())->getValues(), area));
+		return PProcessorBase(new FilteredCellMapStream(inserted->getValues(), area));
 	}
 }
 
 void ValueCache::QueryCache::insertVals(PDoubleCellMap vals)
 {
 	if (inserted->size()) {
-		PCellStream str = dynamic_cast<ICellMapStream *>(vals.get())->getValues();
+		PCellStream str = vals->getValues();
 		while (str->next()) {
 			inserted->set(str->getKey(), str->getDouble());
 		}

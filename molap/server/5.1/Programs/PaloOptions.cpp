@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -67,6 +67,7 @@ static const char * AllowedOptions[] = {"?|help",
 #if defined(_MSC_VER)
         "F:friendly-service-name <service-name>",
 #endif
+        "g:cross-origin          <domain_name>",
         "h+http                  <address> <port>",
 #if defined(ENABLE_HTTPS)
         "H+https                 <port>",
@@ -293,6 +294,7 @@ void PaloOptions::updateGlobals()
 	server->setShortSid(shortSid);
 	server->setEnableGpu(enableGpu);
 
+	Server::setCrossOrigin(crossOrigin);
 	Cube::setCacheBarrier(cacheBarrier);
 	Cube::setGoalseekCellLimit(goalseekCellLimit);
 	Cube::setGoalseekTimeout(goalseekTimeout);
@@ -497,6 +499,10 @@ void PaloOptions::parseOptions(OptionsIterator& iter, bool commandLine)
 				friendlyServiceName = optarg;
 				break;
 #endif
+
+			case 'g':
+				crossOrigin = optarg;
+				break;
 
 			case 'h':
 				if (httpPorts.size() % 2 == 1) {
@@ -742,13 +748,11 @@ void PaloOptions::parseOptions(OptionsIterator& iter, bool commandLine)
 
 WorkerLoginType PaloOptions::convertWorkerLoginType(const string &type)
 {
-	string t = StringUtils::tolower(type);
-
-	if (t == "information") {
+	if (UTF8Comparer::compare(type, "information") == 0) {
 		return WORKER_INFORMATION;
-	} else if (t == "authentication") {
+	} else if (UTF8Comparer::compare(type, "authentication") == 0) {
 		return WORKER_AUTHENTICATION;
-	} else if (t == "authorization") {
+	} else if (UTF8Comparer::compare(type, "authorization") == 0) {
 		return WORKER_AUTHORIZATION;
 	} else {
 		throw ErrorException(ErrorException::ERROR_INVALID_STRING, type);
@@ -757,13 +761,11 @@ WorkerLoginType PaloOptions::convertWorkerLoginType(const string &type)
 
 Encryption_e PaloOptions::convertEncryptionType(const string &type)
 {
-	string t = StringUtils::tolower(type);
-
-	if (t == "none") {
+	if (UTF8Comparer::compare(type, "none") == 0) {
 		return ENC_NONE;
-	} else if (t == "optional") {
+	} else if (UTF8Comparer::compare(type, "optional") == 0) {
 		return ENC_OPTIONAL;
-	} else if (t == "required") {
+	} else if (UTF8Comparer::compare(type, "required") == 0) {
 		return ENC_REQUIRED;
 	} else {
 		throw ErrorException(ErrorException::ERROR_INVALID_STRING, type);

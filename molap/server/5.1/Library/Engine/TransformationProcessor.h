@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -36,7 +36,7 @@ namespace palo {
 
 class SERVER_CLASS TransformationProcessor : public ProcessorBase {
 public:
-	TransformationProcessor(PEngineBase engine, CPPlanNode node);
+	TransformationProcessor(PEngineBase engine, CPPlanNode node, bool sortedOutput = true);
 	virtual ~TransformationProcessor() {}
 
 	virtual bool next();
@@ -48,10 +48,21 @@ public:
 	virtual void reset();
 	virtual bool move(const IdentifiersType &key, bool *found);
 private:
-	typedef pair<size_t, size_t> DimMapping;
-	typedef vector<DimMapping> DimsMappingType;
-	typedef vector<pair<pair<size_t, size_t>, IdentifiersType> > ExpansionRangesType;
-	typedef vector<pair<const Set *, Set::Iterator> > ExpansionState;
+	bool nextIntern(int dimStart);
+
+	typedef vector<int> MappedDimsType;
+	struct ExpansionState {
+		ExpansionState(const Set *set=0, const IdentifiersType *resetKey = 0) : set(set) , sit(set ? set->begin() : Set::Iterator())
+		{
+			if (resetKey) {
+				this->resetKey = *resetKey;
+			}
+		}
+		const Set *set;
+		Set::Iterator sit;
+		IdentifiersType resetKey;
+	};
+	typedef vector<ExpansionState> ExpansionStates;
 
 	CPPlanNode node;
 	const TransformationPlanNode *transformationPlanNode;
@@ -59,18 +70,19 @@ private:
 	CellValueStream *child;
 	CPPathTranslator pathTranslator;
 	GpuBinPath binPath;
-	DimsMappingType dimMapping;
-	ExpansionRangesType expansionRanges;
-	ExpansionState expansions;
+	MappedDimsType dimMapping;
+	ExpansionStates expansions;
 	double factor;
 	CellValue value;
 	bool nextResult;
+	vector<bool> mappedDimensions;
+	IdentifiersType sourceStartKey;
+	IdentifiersType targetStartKey;
 protected:
 	IdentifiersType outKey;
 	IdentifiersType lastInKey;
 	IdentifiersType moveToInKey;
 };
-
 
 class SERVER_CLASS TransformationMapProcessor : public TransformationProcessor {
 private:
@@ -88,10 +100,14 @@ private:
 	const SetMultimaps *multiMaps;
 	bool endOfMultiMapping;
 	CPPlanNode node;
+	bool brokenOrder;
+	PProcessorBase sortedSource;
 public:
-	TransformationMapProcessor(PEngineBase engine, CPPlanNode node);
+	TransformationMapProcessor(PEngineBase engine, CPPlanNode node, bool sortedOutput);
 	virtual ~TransformationMapProcessor() {}
 	virtual bool next();
+	bool isBrokenOrder() const {return brokenOrder;}
+	PProcessorBase getSortedResults();
 };
 
 }

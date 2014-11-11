@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -132,7 +132,7 @@ vector<CellValueStream *> *ArithmeticProcessor::nextAny()
 	bool anyOperandActive = false;
 	bool firstCall = key.empty();
 	key.clear();
-	// call next for each stream and remember maximum
+	// call next for each stream and remember minimum
 	for (size_t operandOrdinal = 0; operandOrdinal < operandsCount; operandOrdinal++) {
 		if (firstCall || (hasNext[operandOrdinal] && activeOperands[operandOrdinal])) {
 			hasNext[operandOrdinal] = streams[operandOrdinal]->next();
@@ -280,7 +280,7 @@ vector<CellValueStream *> *ArithmeticProcessor::moveAny(const IdentifiersType &m
 
 MultiplicationProcessor::MultiplicationProcessor(PEngineBase engine, CPPlanNode node) : ArithmeticProcessor(engine, node)
 {
-	if (constValue == 0) {
+	if (constValue.getNumeric() == 0) {
 		value = CellValue::NullNumeric;
 	}
 }
@@ -325,7 +325,7 @@ bool MultiplicationProcessor::move(const IdentifiersType &key, bool *found)
 				isError = true;
 				break;
 			} else {
-				throw ErrorException(ErrorException::ERROR_INTERNAL, "MultiplicationProcessor::next invalid operand type!");
+				throw ErrorException(ErrorException::ERROR_INTERNAL, "MultiplicationProcessor::move invalid operand type!");
 			}
 		}
 		if (!isError) {
@@ -453,7 +453,7 @@ bool AdditionProcessor::move(const IdentifiersType &key, bool *found)
 				isError = true;
 				break;
 			} else {
-				throw ErrorException(ErrorException::ERROR_INTERNAL, "AdditionProcessor::next invalid operand type!");
+				throw ErrorException(ErrorException::ERROR_INTERNAL, "AdditionProcessor::move invalid operand type!");
 			}
 		}
 		if (!isError) {
@@ -517,7 +517,7 @@ bool SubtractionProcessor::move(const IdentifiersType &key, bool *found)
 				isError = true;
 				break;
 			} else {
-				throw ErrorException(ErrorException::ERROR_INTERNAL, "SubtractionProcessor::next invalid operand type!");
+				throw ErrorException(ErrorException::ERROR_INTERNAL, "SubtractionProcessor::move invalid operand type!");
 			}
 		}
 		if (!isError) {

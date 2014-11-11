@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -125,8 +125,8 @@ public:
 					WriteLocker wl(&Server::getSaveLock());
 					getNewDatabase(false);
 					findCube(true, false);
-					server->saveServer(PUser());
-					server->saveDatabase(database, PUser(), true, NULL);
+					server->saveServer(PUser(), false);
+					server->saveDatabase(database, PUser(), true, NULL, false);
 					database->saveCube(server, cube, PUser());
 					message = "cube saved";
 				} else if (action == "delete") {
@@ -155,8 +155,8 @@ public:
 				} else if (action == "save_database") {
 					WriteLocker wl(&Server::getSaveLock());
 					getNewDatabase(false);
-					server->saveServer(PUser());
-					server->saveDatabase(database, PUser(), true, NULL);
+					server->saveServer(PUser(), false);
+					server->saveDatabase(database, PUser(), true, NULL, false);
 					message = "database saved";
 				} else if (action == "delete_dimension") {
 					getNewDatabase(true);

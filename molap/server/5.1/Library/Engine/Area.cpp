@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -409,12 +409,14 @@ Set::Iterator Set::lowerBound(IdentifierType id) const
 		return Iterator(it, id, *this);
 	}
 	if (it != ranges.begin()) {
-		SetType::iterator sit = it--;
-		if (it->first <= id && it->second >= id) {
-			return Iterator(it, id, *this);
-		} else if (sit != ranges.end()) {
-			return Iterator(sit, sit->first, *this);
+		SetType::iterator sit = it;
+		--sit;
+		if (sit->first <= id && sit->second >= id) {
+			return Iterator(sit, id, *this);
 		}
+	}
+	if (it != ranges.end()) {
+		return Iterator(it, it->first, *this);
 	}
 	return end();
 }
@@ -738,6 +740,23 @@ void Set::addAncestor(PSet set, CPDimension dim, IdentifierType elemId)
 	}
 }
 
+bool SetMultimaps::isTrivialMapping() const
+{
+	bool result = true;
+	// here I should check if there is always one to one mapping
+	for (SetMultimaps::const_iterator smmit = begin(); result && smmit != end(); ++smmit) {
+		if (!*smmit) {
+			continue;
+		}
+		const SetMultimap &smm = **smmit;
+		if (smm.size() != 1) {
+			result = false;
+			break;
+		}
+	}
+	return result;
+}
+
 Area::PathIterator::PathIterator(const Area &area, bool end, const vector<ConstElemIter> &path) : path(path), end(end), area(&area), singlePath(false)
 {
 	if (!end) {
@@ -1036,6 +1055,26 @@ Area::PathIterator Area::find(const IdentifiersType &path) const
 		vector<ConstElemIter> p;
 		for (size_t i = 0; i < area.size(); i++) {
 			ConstElemIter it = area[i]->find(path[i]);
+			if (it == area[i]->end()) {
+				return pathEnd();
+			}
+			p.push_back(it);
+		}
+		return PathIterator(*this, false, p);
+	}
+}
+
+Area::PathIterator Area::lowerBound(const IdentifiersType &path) const
+{
+	if (path.size() != area.size()) {
+		return pathEnd();
+	}
+	if (vpath.size()) {
+		return vpath == path ? pathBegin() : pathEnd();
+	} else {
+		vector<ConstElemIter> p;
+		for (size_t i = 0; i < area.size(); i++) {
+			ConstElemIter it = area[i]->lowerBound(path[i]);
 			if (it == area[i]->end()) {
 				return pathEnd();
 			}

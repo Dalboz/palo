@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -143,6 +143,11 @@ bool CellValue::operator<(const CellValue &b) const
 }
 
 double CellValue::getNumeric() const
+{
+	return value;
+}
+
+CellValue::operator double() const
 {
 	return value;
 }
@@ -314,46 +319,37 @@ PProcessorBase EngineBase::createProcessor(CPPlanNode node, bool sortedOutput, b
 		return ret;
 	}
 	case TRANSFORMATION: {
+		PProcessorBase ret;
 		const TransformationPlanNode *transformationPlanNode = dynamic_cast<const TransformationPlanNode *>(node.get());
 		if (transformationPlanNode->getSourceCubeId().first != NO_IDENTIFIER) {
 			Context::getContext()->setCacheDependence(transformationPlanNode->getSourceCubeId());
 		}
-		if (transformationPlanNode->getSetMultiMaps()) {
-			return PProcessorBase(new TransformationMapProcessor(thisEngine, node));
+		if (transformationPlanNode->getSetMultiMaps() && !transformationPlanNode->getSetMultiMaps()->isTrivialMapping()) {
+			boost::shared_ptr<TransformationMapProcessor> tmp(new TransformationMapProcessor(thisEngine, node, sortedOutput));
+			if (tmp->isBrokenOrder()) {
+				ret = tmp->getSortedResults();
+			} else {
+				ret = tmp;
+			}
 		} else {
-			return PProcessorBase(new TransformationProcessor(thisEngine, node));
+			ret = PProcessorBase(new TransformationProcessor(thisEngine, node));
 		}
+		return ret;
 	}
 	case MULTIPLICATION: {
 		PProcessorBase ret(new MultiplicationProcessor(thisEngine, node));
-		if (useCache && node->getCache()) {
-			// Todo: -jj- should never happen "new" rules results are not cached yet. Rule Id must be provided
-//			ret = node->getCache()->getWriter(node->getCacheCube(), PCubeArea(new CubeArea(CPDatabase(), CPCube(), *node->getArea())), ret);
-		}
 		return ret;
 	}
 	case DIVISION: {
 		PProcessorBase ret(new DivisionProcessor(thisEngine, node));
-		if (useCache && node->getCache()) {
-			// Todo: -jj- should never happen "new" rules results are not cached yet. Rule Id must be provided
-//			ret = node->getCache()->getWriter(node->getCacheCube(), PCubeArea(new CubeArea(CPDatabase(), CPCube(), *node->getArea())), ret);
-		}
 		return ret;
 	}
 	case ADDITION: {
 		PProcessorBase ret(new AdditionProcessor(thisEngine, node));
-		if (useCache && node->getCache()) {
-			// Todo: -jj- should never happen "new" rules results are not cached yet. Rule Id must be provided
-//			ret = node->getCache()->getWriter(node->getCacheCube(), PCubeArea(new CubeArea(CPDatabase(), CPCube(), *node->getArea())), ret);
-		}
 		return ret;
 	}
 	case SUBTRACTION: {
 		PProcessorBase ret(new SubtractionProcessor(thisEngine, node));
-		if (useCache && node->getCache()) {
-			// Todo: -jj- should never happen "new" rules results are not cached yet. Rule Id must be provided
-//			ret = node->getCache()->getWriter(node->getCacheCube(), PCubeArea(new CubeArea(CPDatabase(), CPCube(), *node->getArea())), ret);
-		}
 		return ret;
 	}
 	case CACHE: {
@@ -382,7 +378,7 @@ PProcessorBase EngineBase::createProcessor(CPPlanNode node, bool sortedOutput, b
 		const CellMapPlanNode *cmpn = dynamic_cast<const CellMapPlanNode *>(node.get());
 		PDoubleCellMap cellMap = cmpn->getCellMap();
 		if (cellMap) {
-			return dynamic_cast<ICellMapStream *>(cmpn->getCellMap().get())->getValues();
+			return cmpn->getCellMap()->getValues();
 		} else {
 			return PProcessorBase(new CellMapProcessor(thisEngine, node));
 		}

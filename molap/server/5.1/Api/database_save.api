@@ -22,6 +22,10 @@ To save cube data use the request "/cube/save" (not necessary for complete backu
 @param external_identifier
 @param_type string
 @param_description (Optional) Path to file with zip extension where the backup of the database will be saved 
+
+@param complete
+@param_type boolean
+@param_description (Optional) If "1" then also all cube data will be saved (default "0"). 
  
 
 

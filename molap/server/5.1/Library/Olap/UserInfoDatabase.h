@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -103,8 +103,6 @@ private:
 	void checkConfigCube(PServer server, PDatabase db, bool &dbChanged);
 
 	bool protect;
-	set<IdentifierType> protConfigAttrElems;
-	set<IdentifierType> protConfigElems;
 	PCubeArea protArea;
 	map<pair<IdentifierType, IdentifierType>, string> protValues;
 };

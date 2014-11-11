@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -85,7 +85,7 @@ boost::shared_ptr<PaloSession> PaloSession::createSession(string sid, Identifier
 	boost::shared_ptr<PaloSession> session(new PaloSession(sid, sidId, user, worker, ttlIntervall, peerName, description, machine ? *machine : "", locale));
 	if (!testSession) {
 		Context::getContext()->getServer()->reserveLicense(session, machine, required, optional);
-		Logger::debug << "session key " << shortenSid(sid) << endl;
+		Logger::debug << "session key " << shortenSid(sid, 3) << endl;
 		sessions[sid] = session;
 		sessionIds[sidId] = session;
 
@@ -245,6 +245,16 @@ PUser PaloSession::getUser() const
 }
 
 void PaloSession::increaseTime(uint64_t microseconds, const PaloJob *job) {
+	moveJobToFinished(job);
+
+	WriteLocker wl(&thisLock);
+	totalTime += (double)microseconds/1000000;
+	requestCounter++;
+	activeJobs.erase(job);
+	updateTtl();
+}
+
+void PaloSession::moveJobToFinished(const PaloJob *job) {
 	if (Server::flightRecorderEnabled()) {
 		WriteLocker wl(&m_main_Lock);
 		PServer server = getServer();
@@ -263,12 +273,6 @@ void PaloSession::increaseTime(uint64_t microseconds, const PaloJob *job) {
 			finishedJobs.pop_front();
 		}
 	}
-
-	WriteLocker wl(&thisLock);
-	totalTime += (double)microseconds/1000000;
-	requestCounter++;
-	activeJobs.erase(job);
-	updateTtl();
 }
 
 void PaloSession::onJobStart(const PaloJob *job) {
@@ -300,7 +304,7 @@ void PaloSession::clearOldSessions()
 			session->updateTtl();
 			++iter;
 		} else if (time(0) > session->getTtl()) {
-			Logger::debug << "old session removed " << shortenSid(session->getSid()) << endl;
+			Logger::debug << "old session removed " << shortenSid(session->getSid(), 3) << endl;
 			Context::getContext()->getServer()->freeLicense(session);
 			sessionIds.erase(sessionIds.find(session->getInternalId()));
 			sessions.erase(iter++);
@@ -315,13 +319,13 @@ PServer PaloSession::getServer() const
 	return Context::getContext(0, false)->getServer();
 }
 
-string PaloSession::shortenSid(const string &sid)
+string PaloSession::shortenSid(const string &sid, size_t trailCharCount)
 {
-	if (sid.size() < 5) {
+	if (sid.size() < trailCharCount * 2) {
 		return sid;
 	}
 
-	return sid.substr(0, 3) + "..." + sid.substr(sid.size() - 3, 3);
+	return sid.substr(0, trailCharCount) + "..." + sid.substr(sid.size() - trailCharCount, trailCharCount);
 }
 
 void PaloSession::requestRecord(string req, string ext)

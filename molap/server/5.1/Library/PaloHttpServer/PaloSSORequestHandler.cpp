@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -41,6 +41,8 @@
 #include <openssl/buffer.h>
 #include <openssl/evp.h>
 #endif
+
+#include <boost/shared_array.hpp>
 
 namespace palo {
 
@@ -105,22 +107,27 @@ string AuthenticationContext::accept(string &inputMessage)
 	BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
 	bmem = BIO_new_mem_buf((void *)inputMessage.c_str(), (int)inputMessage.size());
 	b64 = BIO_push(b64, bmem);
-	char bytes[8192];
-	int size = BIO_read(b64, bytes, sizeof(bytes));
+	
+	char bytes[256];
+	vector<char> buffer;
+	int size;
+	while ((size = BIO_read(b64, bytes, sizeof(bytes))) > 0) {
+		buffer.insert(buffer.end(), bytes, bytes + size);
+	}
 	BIO_free_all(b64);
 
 	secBuffCli.BufferType = SECBUFFER_TOKEN;
-	secBuffCli.cbBuffer = (unsigned long)size;
-	secBuffCli.pvBuffer = bytes;
+	secBuffCli.cbBuffer = (unsigned long)buffer.size();
+	secBuffCli.pvBuffer = (void *)&buffer[0];
 	
 	outputCli.cBuffers = 1;
 	outputCli.pBuffers = &secBuffCli;
 	outputCli.ulVersion = SECBUFFER_VERSION;
 
-	char outputBytes[8192];
+	boost::shared_array<char> outputBytes(new char[secPackInfo->cbMaxToken]);
 	secBuffSrv.BufferType = SECBUFFER_TOKEN;
-	secBuffSrv.cbBuffer = sizeof(outputBytes)/*secPackInfo->cbMaxToken*/;
-	secBuffSrv.pvBuffer = outputBytes;
+	secBuffSrv.cbBuffer = secPackInfo->cbMaxToken;
+	secBuffSrv.pvBuffer = outputBytes.get();
 
 	outputSrv.cBuffers = 1;
 	outputSrv.pBuffers = &secBuffSrv;
@@ -179,7 +186,7 @@ string AuthenticationContext::accept(string &inputMessage)
 		BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
 		bmem = BIO_new(BIO_s_mem());
 		b64 = BIO_push(b64, bmem);
-		BIO_write(b64, outputBytes, secBuffSrv.cbBuffer);
+		BIO_write(b64, outputBytes.get(), secBuffSrv.cbBuffer);
 		(void)BIO_flush(b64);
 		BIO_get_mem_ptr(b64, &bptr);
 		std::string encodedMsg(bptr->data, bptr->length);

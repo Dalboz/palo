@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -342,6 +342,12 @@ public:
 	void setRefreshUsers() {
 		refreshUsers = true;
 	}
+	void addRenamedUser(IdentifierType id, string newName) {
+		renamedUsers[id] = newName;
+	}
+	map<IdentifierType, string> getRenamedUsers() const {
+		return renamedUsers;
+	}
 	////////////////////////////////////////////////////////////////////////////////
 	/// @}
 	////////////////////////////////////////////////////////////////////////////////
@@ -473,6 +479,7 @@ private:
 	CubesWithDBs changedMarkerCubes;
 	bool updateToken;
 	bool refreshUsers;
+	map<IdentifierType, string> renamedUsers;
 	std::list<PCube> cubesToDelete;
 	std::list<PDatabase> dbsToDelete;
 	RuleIds newMarkerRules;

@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -333,7 +333,9 @@ void PaloHttpRequest::setKeyValue(char * keyStart, char * keyPtr, char * valueSt
 #endif
 
 		if (option != 0 && option->code == PaloRequestHandler::CMD_SID) {
-			httpParams << PaloSession::shortenSid(string(valueStart, valuePtr));
+			httpParams << PaloSession::shortenSid(string(valueStart, valuePtr), 3);
+		} else if (option != 0 && option->code == PaloRequestHandler::CMD_PASSWORD) {
+			httpParams << PaloSession::shortenSid(string(valueStart, valuePtr), 2);
 		} else if (valuePtr - valueStart > maxLength) {
 			httpParams.write(valueStart, maxLength);
 			httpParams << "...(argument total " << valuePtr-valueStart << " bytes)";

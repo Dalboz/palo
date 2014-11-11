@@ -1,47 +1,64 @@
-PALO 5.1 - OpenSource MOLAP (www.jedox.com) 
+    PALO 6.0 - OpenSource MOLAP (www.palo.net)
 
 A) List of tools needed for building:
 
    * SVN Client: subversion or other command line svn client
    * CMake 2.8 or higher (http://www.cmake.org/cmake/resources/software.html)
+   * NVIDIA CUDA-Toolkit 5.0 (https://developer.nvidia.com/cuda-downloads)
    
    * VS2010 with SP1 for Windows OS (Vista, 7, 8, Sever 2008, Server 2012)
    * gcc and g++ >= 4.4 for Linux OS
 
 B) Third party libraries needed for building:
 
-   * Boost
-   * OpenSSL
-   * ICU
-   * ZLIB     
-   * Google Performance Tools (http://code.google.com/p/gperftools/) needed only
-   for Linux build   
+   * Boost available through http://jedoxs02/svn/libext/trunk/boost
+   * OpenSSL available through http://jedoxs02/svn/libext/trunk/openssl
+   * ICU available through http://jedoxs02/svn/libext/trunk/icu 
+   * ZLIB available through http://jedoxs02/svn/libext/trunk/zlib 
+   * CUDA Libraries (coming with CUDA-Toolkit 5.0)
+     
+     - only for Linux
+     
+   * Google Performance Tools available through
+        http://jedoxs02/svn/libext/trunk/perftools
 
-C)  Build Palo Server
+C) Howto for setting up build environment:
 
+   * Install SVN Client, CUDA-Toolkit 5.0, cmake and c++ compiler 
+   * create workspace directory - mkdir workspace
+   * change directory - cd ./workspace
+   * make partial svn checkout for needed libraries (command line):
+       svn checkout http://jedoxs02/svn/libext/trunk libext --depth files
+       svn update --set-depth infinity libext/boost \
+       svn update --set-depth infinity libext/openssl \
+       svn update --set-depth infinity libext/icu \
+       svn update --set-depth infinity libext/zlib \
+       svn update --set-depth infinity libext/perftools 
+   * make svn checkout for olap server:
+       svn checkout http://jedoxs02/svn/palo_server/trunk/Source palo_server  
+
+D)  Build Palo Server
+
+   * change directory - cd ./workspace/palo_server
    * create build directory - mkdir build
    * change directory - cd build
    * run cmake build configuration command: 
    
-        cmake -G "[Generator]" ../
+        cmake -G "[Generator]" -DSVN_LIB_ROOT_DIR="/absolute_path_to_workspace/libext" ../
         
         - for Linux OS [Generator]=Unix Makefiles
         - for Windows OS [Generator]=Visual Studio 10 or Visual Studio 10 Win64
      
-   * optionally choose build configuration you need by setting corresponding 
-   flag -DFLAG and rerun cmake: 
-     	- to enable/disable bison generated RuleParser add -DENABLE_USE_BISON={ON|
-       OFF}
-     	- to enable/disable flex gererated RuleScanner add -DENABLE_USE_FLEX={ON|
-       OFF}
-     	- to enable/disable gperf generated PaloCommands add -DENABLE_USE_GPERF={
-       ON|OFF}
+   * choose build configuration you need by setting corresponding flag -DFLAG 
+     and rerun cmake: 
+     	- to enable/disable bison generated RuleParser add -DENABLE_USE_BISON={ON|OFF}
+     	- to enable/disable flex gererated RuleScanner add -DENABLE_USE_FLEX={ON|OFF}
+     	- to enable/disable gperf generated PaloCommands add -DENABLE_USE_GPERF={ON|OFF}
    * start build process with:
         - call make command for Linux OS or
         - devenv palo.sln /build Release /project palo for Windows OS
         - you can open palo.sln solution file in VS 2010 start build process too
-        - REMEMBER all changes you make in VS 2010 solution file or project 
-        files 
+        - REMEMBER all changes you make in VS 2010 solution file or project files 
           would be rewritten by next invoke of cmake configuration script 
           
 HOWTO start palo

@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -227,7 +227,7 @@ public:
 	}
 
 	void loadServer(PUser user);
-	void saveServer(PUser user);
+	void saveServer(PUser user, bool complete);
 public:
 	uint32_t getToken() const {
 		return token;
@@ -321,6 +321,9 @@ public:
 
 	void removeStorages(IdentifiersType storages);
 
+	static void setCrossOrigin(string crossOrigin) {Server::crossOrigin = crossOrigin;}
+	static string &getCrossOrigin() {return crossOrigin;}
+
 public:
 	void beginShutdown(PUser);
 	void changePassword(PUser userChanging, IdentifierType userToChange, const string& new_password);
@@ -332,7 +335,7 @@ public:
 	void renameDatabase(PDatabase database, const string & name, PUser user, bool useDimWorker);
 	void loadDatabase(PDatabase database, PUser user);
 	PDatabase restoreDatabase(const string &zipFileName, PUser user, string *dbName);
-	void saveDatabase(PDatabase database, PUser user, bool sendEvent, string *backupZipPath);
+	void saveDatabase(PDatabase database, PUser user, bool sendEvent, string *backupZipPath, bool complete);
 	void unloadDatabase(PDatabase database, PUser user);
 	PDatabase lookupDatabase(IdentifierType identifier, bool write) const {
 		return COMMITABLE_CAST(Database, dbs->get(identifier, write));
@@ -455,10 +458,12 @@ private:
 	/// @brief get vector with all usable gpu device (Compute Capability >= 1.3)
 	////////////////////////////////////////////////////////////////////////////////
 	map<string, int32_t> getGpuDeviceIds();
+	map<string, int32_t> getGpuDeviceIds(vector<string> gpuDeviceIdsOptions);
 
 	////////////////////////////////////////////////////////////////////////////////
 	/// @brief check gpu devices ids from config file palo.ini and return gpu ordinals
 	////////////////////////////////////////////////////////////////////////////////
+	vector<int32_t> getGpuDeviceOrdinals(map<string, int32_t> &gpuDeviceIdsSystem, size_t numGpusLicense);
 	vector<int32_t> getGpuDeviceOrdinals(map<string, int32_t> &gpuDeviceIdsSystem, vector<string> gpuDeviceIdsOptions, size_t numGpusLicense);
 
 private:
@@ -499,6 +504,7 @@ private:
 	bool buildMarkers;
 	PThreadPool tp;
 	static RightsType defaultDbRight;
+	static string crossOrigin;
 };
 
 ostream& operator<<(ostream& ostr, const vector<CPDatabase> &vdb);

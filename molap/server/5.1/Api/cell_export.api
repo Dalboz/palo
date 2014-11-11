@@ -50,7 +50,7 @@ progress.
 @param_type string
 @param_description Condition on the value of numeric or string cells (default is no condition). 
 A condition starts with >, >=, <, <=, ==, or != and is followed by a double or a string. 
-Two condition can be combined by and, or, xor. If you specifiy a string value, the value has to be csv encoded.
+Two condition can be combined by and, or, xor. If you specify a string value, the value has to be csv encoded.
 Do not forget to URL encode the complete condition string.
 
 @param use_rules

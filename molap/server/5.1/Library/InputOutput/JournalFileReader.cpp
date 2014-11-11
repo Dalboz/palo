@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -79,10 +79,7 @@ const string JournalFileReader::JOURNAL_ELEMENTS_BULK_STOP = "ELEMENTS_BULK_STOP
 const string JournalFileReader::JOURNAL_VERSION = "VERSION";
 
 // minimal version required
-const int JournalFileReader::minRelease = 4;
-const int JournalFileReader::minSR = 0;
-const int JournalFileReader::minBuild = 3215;
-
+const JournalFileReader::Version JournalFileReader::minVersion = JournalFileReader::Version(5, 1, 5594);
 
 
 JournalFileReader::JournalFileReader(const FileName& fileName) :

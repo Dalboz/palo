@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -496,6 +496,7 @@ Rule::Rule(const Rule &other) : Commitable(other)
 	evalCounter = other.evalCounter;
 	evalNullCounter = other.evalNullCounter;
 	position = other.position;
+	custom = other.custom;
 }
 
 PCommitable Rule::copy() const

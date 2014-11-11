@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -531,21 +531,21 @@ void Cube::processJournalCommand(PServer server, PDatabase db, CPCube thisCube, 
 	string event = history.getDataString(2);
 	string command = history.getDataString(3);
 
-	if (history.getVersion().isUnknown() && command != JournalFileReader::JOURNAL_VERSION) {
-		throw ErrorException(ErrorException::ERROR_INVALID_VERSION, "cube " + StringUtils::convertToString(getId()) + " has nonempty journal file from old version");
-	}
-
 	if (command == JournalFileReader::JOURNAL_VERSION) {
 		int release = history.getDataInteger(4);
 		int sr = history.getDataInteger(5);
 		int build = history.getDataInteger(7);
 		history.setVersion(release, sr, build);
-
-		JournalFileReader::Version minimumRequired(JournalFileReader::minRelease, JournalFileReader::minSR, JournalFileReader::minBuild);
-
-		if (history.getVersion() < minimumRequired) {
-			throw ErrorException(ErrorException::ERROR_INVALID_VERSION, "cube " + StringUtils::convertToString(getId()) + " has nonempty journal file from old version");
-		}
+	} else if (history.getVersion().isUnknown()) {
+		throw ErrorException(ErrorException::ERROR_INVALID_VERSION, "cube " + StringUtils::convertToString(getId()) + " has nonempty journal file from old version");
+	} else if (command == JournalFileReader::JOURNAL_RULE_MOVE) {
+		IdentifierType id = history.getDataInteger(4);
+		double position = history.getDataDouble(5);
+		PRule rule = findRule(id);
+		setRulesPosition(server, db, vector<PRule>(1, rule), position, 0, PUser(), false);
+	} else if (history.getVersion().isOld()) {
+		// MOVE_RULE only above is allowed also in old versions due to a bug fixed in 5720
+		throw ErrorException(ErrorException::ERROR_INVALID_VERSION, "cube " + StringUtils::convertToString(getId()) + " has nonempty journal file from old version");
 	} else if (command == JournalFileReader::JOURNAL_CELL_REPLACE_BULK_START) {
 		replaceBulkState = Cube::First;
 	} else if (command == JournalFileReader::JOURNAL_CELL_REPLACE_BULK_STOP) {
@@ -696,11 +696,6 @@ void Cube::processJournalCommand(PServer server, PDatabase db, CPCube thisCube, 
 		ActivationType activate = (ActivationType)history.getDataInteger(5);
 		PRule rule = findRule(id);
 		activateRules(server, db, vector<PRule>(1, rule), activate, PUser(), NULL, false, false);
-	} else if (command == JournalFileReader::JOURNAL_RULE_MOVE) {
-		IdentifierType id = history.getDataInteger(4);
-		double position = history.getDataDouble(5);
-		PRule rule = findRule(id);
-		setRulesPosition(server, db, vector<PRule>(1, rule), position, 0, PUser(), false);
 	} else {
 		// unknown command
 		Logger::info << "unknown cube journal file command: " << command << endl;
@@ -1905,7 +1900,7 @@ bool Cube::copyCells(PServer server, PDatabase db, PCubeArea cellPathFrom, PCube
 		}
 	}
 
-	SetMultimaps setMultimaps(dimCount, PSetMultimap());
+	SetMultimaps setMultimaps(dimCount);
 	PCube cube = COMMITABLE_CAST(Cube, shared_from_this());
 	PCubeArea areaSrc(new CubeArea(db, cube, dimCount));
 	PCubeArea areaTarget(new CubeArea(db, cube, dimCount));
@@ -1991,11 +1986,11 @@ bool Cube::copyCells(PServer server, PDatabase db, PCubeArea cellPathFrom, PCube
 			}
 		}
 
-		PCellStream changedValues = dynamic_cast<ICellMapStream *>(spFinalTargetBatch.get())->getValues();
+		PCellStream changedValues = spFinalTargetBatch->getValues();
 		size_t counter = 0;
 		Context *con = Context::getContext();
 		while (changedValues->next()) {
-			if (++counter % 10000) {
+			if (!(++counter % 10000)) {
 				con->check();
 			}
 			setCellValue(server, db, PCubeArea(new CubeArea(db, cube, changedValues->getKey())), CellValue(changedValues->getDouble()), lockedCells, PUser(), boost::shared_ptr<PaloSession>(), false, false, DEFAULT, false, 0, changedCubes, false, CubeArea::NONE);
@@ -3195,6 +3190,8 @@ bool Cube::setRulesPosition(PServer server, PDatabase db, const vector<PRule> mo
 		}
 
 		rule->setPosition(rulePosition);
+
+		rulesStatus = CHANGED;
 
 		if (useJournal && journal != 0) {
 			journal->appendCommand(server->getUsername(user), server->getEvent(), JournalFileReader::JOURNAL_RULE_MOVE);

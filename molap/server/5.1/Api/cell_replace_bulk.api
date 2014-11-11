@@ -53,7 +53,7 @@ ended with push_rule/end when used within a worker.
  
 @param values
 @param_type double/string
-@param_description Colon separated list of values. Each value is the new numeric or string value for the cell corresponding to the above path. If you specifiy a string value, the value has to be csv encoded.
+@param_description Colon separated list of values. Each value is the new numeric or string value for the cell corresponding to the above path. If you specify a string value, the value has to be csv encoded.
  
 @param add
 @param_type boolean
