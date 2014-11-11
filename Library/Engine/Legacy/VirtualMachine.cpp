@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -691,7 +691,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 		case bytecode_generator::JUMP_IF_NOT:
 			if (checkStackErrors(1)) {
 				i = *pc++;
-				if (val_0 == 0.0) {
+				if (val_0.getNumeric() == 0.0) {
 					val_0 = *--sp;
 					pc += i;
 				} else {
@@ -1298,7 +1298,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 			if (checkStackErrors(i)) {
 				for (j = 1; j < i; j++) {
 					--sp;
-					if (*sp == 0.0) {
+					if (sp->getNumeric() == 0.0) {
 						val_0 = 0.0;
 					}
 				}
@@ -1310,7 +1310,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 			if (checkStackErrors(i)) {
 				for (j = 1; j < i; j++) {
 					--sp;
-					if (*sp != 0.0) {
+					if (sp->getNumeric() != 0.0) {
 						val_0 = 1.0;
 					}
 				}

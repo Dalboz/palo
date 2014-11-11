@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -1248,7 +1248,7 @@ PCellStream StorageCpu::commitExternalChanges(bool checkLocks, PProcessorBase ch
 //#endif
 #endif
 	if (checkLocks) {
-		result = dynamic_cast<ICellMapStream *>(res.get())->getValues();
+		result = res->getValues();
 	}
 
 	return result;
@@ -2719,8 +2719,7 @@ bool StorageCpu::Processor::move(const IdentifiersType &key, bool *found)
 		quickMode = false;
 	}
 	if (quickMode) {
-//		IdentifiersType thisKey(this->key, this->key + key.size());
-		int cmp = CellValueStream::compare(key, vkey /*thisKey*/);
+		int cmp = key.compare(vkey);
 		if (cmp < 0) {
 			return true;
 		} else if (cmp == 0) {
@@ -2756,7 +2755,14 @@ bool StorageCpu::Processor::move(const IdentifiersType &key, bool *found)
 	}
 	bool result = next();
 	if (result && found) {
-		*found = key == getKey();
+		*found = true;
+		const IdentifiersType &foundKey = getKey();
+		for (size_t i = 0; i < key.size(); i++) {
+			if (key[i] != NO_IDENTIFIER && key[i] != foundKey[i]) {
+				*found = false;
+				break;
+			}
+		}
 	}
 	return result;
 }
@@ -3383,14 +3389,16 @@ bool StorageCpu::Writer::movePages(Processor *p, const IdentifiersType *key)
 		}
 
 		if (ds.index2 && p->storage.index2 && ds.index2->empty() && !key && spos == currSize) {
-			if (spage == 0 && epage == p->storage.index2->size()) {
+			if (spage == 0 && p->storage.index2->at(p->storage.index2->size() - 1).getPosition() < epos) {
 				ds.index2 = p->storage.index2;
 			} else {
 				if (epage > spage) {
 					ds.index2->reserve(epage - spage);
 				}
-				for (uint32_t iPage = spage; iPage < epage; iPage++) {
-					ds.index2->push_back(p->storage.index2->at(iPage));
+				for (vector<Bookmark>::const_iterator iti2 = p->storage.index2->begin(); iti2 != p->storage.index2->end(); ++iti2) {
+					if (iti2->getPosition() >= spos && iti2->getPosition() < epos) {
+						ds.index2->push_back(*iti2);
+					}
 				}
 			}
 		}
@@ -3929,7 +3937,7 @@ bool StringStorageCpu::rebuildStrings(StringVector *newStrings)
 	Processor p(*this, pageList.get(), CPArea(), 0);
 
 	if (changedCells) {
-		PCellStream cells = dynamic_cast<ICellMapStream *>(changedCells.get())->getValues();
+		PCellStream cells = changedCells->getValues();
 		while (cells->next()) {
 			const IdentifiersType &key = cells->getKey();
 			double d = cells->getDouble();
@@ -4037,7 +4045,7 @@ CellMapProcessor::CellMapProcessor(PEngineBase engine, CPPlanNode node) : Proces
 	if (st) {
 		PDoubleCellMap changedCells = st->getChangedCells();
 		if (changedCells) {
-			valueStream = dynamic_cast<ICellMapStream *>(changedCells.get())->getValues();
+			valueStream = changedCells->getValues();
 		}
 	} else {
 		throw ErrorException(ErrorException::ERROR_INTERNAL, "invalid storage for CellMapProcessor");

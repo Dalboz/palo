@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -190,7 +190,11 @@ public:
 				PCellStream cs;
 				PCellStream props;
 				if (calcArea->getSize()) {
-					cs = cube->calculateArea(calcArea, type, jobRequest->useRules ? ALL_RULES : NO_RULES, mySkipEmpty, freeCount ? freeCount : UNLIMITED_SORTED_PLAN);
+					RulesType rulesType = jobRequest->useRules ? ALL_RULES : NO_RULES;
+					if (jobRequest->useRules && !jobRequest->showRule) {
+						rulesType = RulesType(rulesType | NO_RULE_IDS);
+					}
+					cs = cube->calculateArea(calcArea, type, rulesType, mySkipEmpty, freeCount ? freeCount : UNLIMITED_SORTED_PLAN);
 					if (jobRequest->properties) {
 						props = getCellPropsStream(database, cube, calcArea, *jobRequest->properties);
 					}

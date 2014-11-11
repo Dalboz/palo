@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -323,21 +323,19 @@ vector<PCube> Database::processJournalCommand(PServer server, JournalFileReader 
 	vector<PCube> createdCubes;
 	bool inBulk = (file == NULL);
 
-	if (history.getVersion().isUnknown() && command != JournalFileReader::JOURNAL_VERSION) {
-		throw ErrorException(ErrorException::ERROR_INVALID_VERSION, "database " + StringUtils::convertToString(getId()) + " has nonempty journal file from old version");
-	}
-
 	if (command == JournalFileReader::JOURNAL_VERSION) {
 		int release = history.getDataInteger(4);
 		int sr = history.getDataInteger(5);
 		int build = history.getDataInteger(7);
 		history.setVersion(release, sr, build);
 
-		JournalFileReader::Version minimumRequired(JournalFileReader::minRelease, JournalFileReader::minSR, JournalFileReader::minBuild);
-
-		if (history.getVersion() < minimumRequired) {
+		if (history.getVersion().isOld()) {
 			throw ErrorException(ErrorException::ERROR_INVALID_VERSION, "database " + StringUtils::convertToString(getId()) + " has nonempty journal file from old version");
 		}
+	}
+
+	else if (history.getVersion().isUnknown()) {
+		throw ErrorException(ErrorException::ERROR_INVALID_VERSION, "database " + StringUtils::convertToString(getId()) + " has nonempty journal file from old version");
 	}
 
 	else if (command == JournalFileReader::JOURNAL_ELEMENTS_BULK_START) {
@@ -886,6 +884,10 @@ void Database::processJournalsChronologically(PServer server, FileReader *file, 
 	IdentifiersType deletedDims;
 	vector<vector<string> > elementBulkCommands;
 	IdentifierType bulkDimId = NO_IDENTIFIER;
+
+	if (!journals.empty()) {
+		Logger::info << "found non-empty journal(s) in database " << getName() << ", processing started" << endl;
+	}
 
 	while (!journals.empty()) { // while any journal contains commands
 		vector<journalStruct>::iterator min = journals.begin();

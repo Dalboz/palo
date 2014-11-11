@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -265,7 +265,13 @@ private:
 
 typedef multimap<IdentifierType, IdentifierType> SetMultimap;
 typedef boost::shared_ptr<SetMultimap> PSetMultimap;
-typedef vector<PSetMultimap> SetMultimaps;
+
+class SetMultimaps : public vector<PSetMultimap>
+{
+public:
+	SetMultimaps(size_t dimCount = 0) : vector<PSetMultimap>(dimCount, PSetMultimap()) {}
+	bool isTrivialMapping() const;
+};
 
 class Area {
 public:
@@ -310,6 +316,7 @@ public:
 	void insert(size_t dimOrdinal, CPSet elems, bool calc = true);
 	ConstElemIter find(size_t dimOrdinal, IdentifierType elemId) const;
 	PathIterator find(const IdentifiersType &path) const;
+	PathIterator lowerBound(const IdentifiersType &path) const;
 	size_t dimCount() const;
 	size_t elemCount(size_t dimOrdinal) const;
 	CPSet getDim(size_t dimOrdinal) const;

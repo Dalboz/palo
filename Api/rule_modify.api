@@ -48,7 +48,7 @@ Use the parameter "definition" for changing the rule or use the parameter "activ
  
 @param position
 @param_type double
-@param_description Optional position of the rule in the list of cube rules. By default the position stays unchanged. If no definition s specified only parameter activate or position can be specified. If multiple rules are specified in parameter rule. All rules will get new position. If     
+@param_description Optional position of the rule in the list of cube rules. By default the position stays unchanged. If multiple rules are specified in parameter 'rule' all these rules will get new position. First rule from the list get position 'position', second gets 'position'+1 etc.
  
 @param sid
 @param_type string

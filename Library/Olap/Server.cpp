@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -87,6 +87,7 @@ PServer Server::writersserver;
 Mutex Server::writerslock;
 
 RightsType Server::defaultDbRight = RIGHT_DELETE;
+string Server::crossOrigin;
 
 string LicIter::getKey()
 {
@@ -808,7 +809,7 @@ void Server::saveServerDatabases(FileWriter *file)
 	}
 }
 
-void Server::saveServer(PUser user)
+void Server::saveServer(PUser user, bool complete)
 {
 	if (NULL != user) {
 		checkSystemOperationRight(user, RIGHT_WRITE);
@@ -834,6 +835,14 @@ void Server::saveServer(PUser user)
 		Logger::error << "cannot rename server file: '" << strerror(errno) << endl;
 		Logger::error << "please check the underlying file system for errors" << endl;
 		exit(1);
+	}
+
+	if (complete) {
+		for (DatabaseList::Iterator i = dbs->begin(); i != dbs->end(); ++i) {
+			PDatabase database = COMMITABLE_CAST(Database, *i);
+			if (NULL != database)
+				saveDatabase(database, user, true, NULL, complete);
+		}
 	}
 }
 
@@ -929,6 +938,7 @@ void Server::beginShutdown(PUser user)
 			cube->executeShutdown();
 		}
 	}
+	Context::getContext()->setTokenUpdate(false);
 }
 
 void Server::changePassword(PUser userChanging, IdentifierType userToChange, const string& new_password)
@@ -1002,7 +1012,7 @@ void Server::addDatabase(PDatabase database, bool notify, bool newid, PUser user
 void Server::commitAndSave()
 {
 	try {
-		saveServer(PUser());
+		saveServer(PUser(), false);
 
 		for (DatabaseList::Iterator i = dbs->begin(); i != dbs->end(); ++i) {
 			PDatabase database = COMMITABLE_CAST(Database, *i);
@@ -1011,7 +1021,7 @@ void Server::commitAndSave()
 
 			if (database->getStatus() == Database::CHANGED) {
 				Logger::info << "auto commiting changes to database '" << database->getName() << "'" << endl;
-				saveDatabase(database, PUser(), true, NULL);
+				saveDatabase(database, PUser(), true, NULL, false);
 			}
 
 			PCubeList cubes = database->getCubeList(false);
@@ -1249,7 +1259,7 @@ void Server::saveDatabaseCubes(PDatabase database)
 	}
 }
 
-void Server::saveDatabase(PDatabase database, PUser user, bool sendEvent, string *backupZipPath)
+void Server::saveDatabase(PDatabase database, PUser user, bool sendEvent, string *backupZipPath, bool complete)
 {
 	checkSystemOperationRight(user, RIGHT_WRITE);
 
@@ -1271,8 +1281,13 @@ void Server::saveDatabase(PDatabase database, PUser user, bool sendEvent, string
 		if (!systemDatabase) {
 			throw ErrorException(ErrorException::ERROR_INTERNAL, "no system database to save");
 		}
+	}
 
+	if (backupZipPath || complete) {
 		saveDatabaseCubes(database);
+	}
+
+	if (backupZipPath) {
 		systemDatabase->saveDatabase(COMMITABLE_CAST(Server, shared_from_this()));
 		saveDatabaseCubes(systemDatabase);
 
@@ -1607,6 +1622,95 @@ map<string, int32_t> Server::getGpuDeviceIds()
 	return idsMap;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+/// @brief check gpu devices ids from config file palo.ini and return gpu ordinals
+////////////////////////////////////////////////////////////////////////////////
+map<string, int32_t> Server::getGpuDeviceIds(vector<string> gpuDeviceIdsOptions)
+{
+	std::map<string, int32_t> idsMap;
+#ifdef ENABLE_GPU_SERVER
+	int deviceCount = 0;
+	cudaGetDeviceCount(&deviceCount);
+	ostringstream firstTeslaGpuName;
+	// iterate over all devices
+	for (int device = 0; device < deviceCount; ++device) {
+		cudaDeviceProp devProp;
+		cudaGetDeviceProperties(&devProp, device);
+		int ccMajor = devProp.major;
+		int ccMinor = devProp.minor;
+
+		ostringstream gpuName;
+		gpuName << devProp.name;
+
+		// check if card should be used
+
+		//check gpu device Compute Capability(>= 2) and
+		if (ccMajor > 1 || (ccMajor == 1 && ccMinor >= 3)) {
+			if (gpuDeviceIdsOptions.size() > 0)	// if user selected specific device id's
+			{
+				// get gpu device id
+				int busID = devProp.pciBusID;
+				int devID = devProp.pciDeviceID;
+				ostringstream tmp;
+				tmp << std::hex << busID << "." << std::hex << devID; // convert integers to hex as used in palo.ini and nvsmi
+				if (Logger::isTrace())
+					Logger::trace << "GPU: Device " << device << " has ID " << tmp.str() << endl;
+				bool gpuFlag = false;	// user selected specific device id's
+				for (int i = 0; i < gpuDeviceIdsOptions.size(); i++){
+					if (gpuDeviceIdsOptions.at(i) == tmp.str())
+						gpuFlag = true;
+				}
+				if (gpuFlag) {
+					// check first valid gpu's name
+					if (firstTeslaGpuName.str().size() == 0 && (gpuName.str().find("esla") != string::npos || gpuName.str().find("ESLA") != string::npos))
+						firstTeslaGpuName << devProp.name;
+					// check that only equivalent gpus are used
+					if (firstTeslaGpuName.str().size() > 0 && gpuName.str().find(firstTeslaGpuName.str()) != string::npos)
+						idsMap.insert(pair<string, int32_t>(tmp.str(), device));
+				}
+			}
+			else
+			{
+				// remember first Tesla card
+				if (firstTeslaGpuName.str().size() == 0 && (gpuName.str().find("esla") != string::npos || gpuName.str().find("ESLA") != string::npos))
+					firstTeslaGpuName << devProp.name;
+				// add equivalent GPU cards
+				if (firstTeslaGpuName.str().size() > 0 && gpuName.str().find(firstTeslaGpuName.str()) != string::npos) {
+					// get gpu device id
+					int busID = devProp.pciBusID;
+					int devID = devProp.pciDeviceID;
+					ostringstream tmp;
+					tmp << std::hex << busID << "." << std::hex << devID; // convert integers to hex as used in palo.ini and nvsmi
+					if (Logger::isTrace())
+						Logger::trace << "GPU: Device " << device << " has ID " << tmp.str() << endl;
+					idsMap.insert(pair<string, int32_t>(tmp.str(), device));
+				}
+			}
+		}
+	}
+#endif
+	return idsMap;
+}
+
+vector<int32_t> Server::getGpuDeviceOrdinals(map<string, int32_t> &gpuDeviceIdsSystem, size_t numGpusLicense)
+{
+	// correct mapping of devices
+	vector<int32_t> gpuDeviceOrdinals(0);
+	if (numGpusLicense > 0) {
+		// activate all gpu, count <= number of gpus from license
+		for (map<string, int32_t>::iterator devIt = gpuDeviceIdsSystem.begin(); devIt != gpuDeviceIdsSystem.end(); devIt++) {
+			if (gpuDeviceOrdinals.size() < numGpusLicense) {
+				gpuDeviceOrdinals.push_back(devIt->second);
+			}
+			else {
+				Logger::info << "GPU: Maximum number of licensed GPU devices reached!" << endl;
+				break;
+			}
+		}
+	}
+	return gpuDeviceOrdinals;
+}
+
 vector<int32_t> Server::getGpuDeviceOrdinals(map<string, int32_t> &gpuDeviceIdsSystem, vector<string> gpuDeviceIdsOptions, size_t numGpusLicense)
 {
 	//correct mapping of devices
@@ -1659,8 +1763,8 @@ bool Server::activateGpuEngine(vector<string> gpuDeviceIdsOptions)
 		Logger::error << "GPU: Invalid or no license detected - Jedox OLAP Accelerator (Gpu) disabled." << endl;
 		enableGpu = false;
 	} else {
-		map<string, int32_t> gpuDeviceIdsSystem = getGpuDeviceIds();
-		gpuDeviceOrdinals = getGpuDeviceOrdinals(gpuDeviceIdsSystem, gpuDeviceIdsOptions, numGpusLicense);
+		map<string, int32_t> gpuDeviceIdsSystem = getGpuDeviceIds(gpuDeviceIdsOptions);
+		gpuDeviceOrdinals = getGpuDeviceOrdinals(gpuDeviceIdsSystem, numGpusLicense);
 
 		if (gpuDeviceOrdinals.size() > 0) {
 			if (engines->size() == 1) {

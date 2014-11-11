@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -45,6 +45,8 @@ StringVector::StringVector(const StringVector &v) : SlimVector<char>(v), filled(
 
 StringVector::StringId StringVector::push(const string &str)
 {
+	checkCheckedOut();
+
 	Slim<char>::PSlimPage lastPage;
 	if (!pages.empty()) {
 		lastPage = pages[pages.size() - 1];

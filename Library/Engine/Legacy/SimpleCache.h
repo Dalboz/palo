@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -46,6 +46,7 @@ public:
 		cache_value_type() {}
 		cache_value_type(double d, uint8_t u) : std::pair<double, uint8_t>(d,u) {}
 		cache_value_type &operator+=(const cache_value_type &acv);
+		operator double() {return first;}
 	};
 	typedef IdentifiersType cache_key_type;
 	typedef std::map<cache_key_type, cache_value_type> cache_type;

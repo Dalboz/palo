@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -44,15 +44,16 @@ int IdentifiersType::compare(const IdentifiersType &o) const {
 		throw ErrorException(ErrorException::ERROR_INTERNAL, "different size of IdentifiersType");
 	}
 
-	for (size_t i = 0; i < size; i++) {
+	for (int i = 0; i < (int)size; i++) {
 		if (at(i) < o.at(i)) {
-			return -1;
+			return -(i+1);
 		} else if (at(i) > o.at(i)) {
-			return 1;
+			return i+1;
 		}
 	}
 	return 0;
 }
+
 bool CellValueStream::move(const IdentifiersType &key, bool *found)
 {
 	bool result = true;

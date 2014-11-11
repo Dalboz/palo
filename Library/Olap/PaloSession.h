@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -161,6 +161,7 @@ public:
 	////////////////////////////////////////////////////////////////////////////////
 
 	void increaseTime(uint64_t microseconds, const PaloJob *job);
+	void moveJobToFinished(const PaloJob *job);
 
 	////////////////////////////////////////////////////////////////////////////////
 	/// @brief on job start
@@ -178,7 +179,7 @@ public:
 
 	PServer getServer() const;
 
-	static string shortenSid(const string &sid);
+	static string shortenSid(const string &sid, size_t trailCharCount);
 
 	const string &getLocale() {return locale;}
 

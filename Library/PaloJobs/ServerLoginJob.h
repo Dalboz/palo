@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -138,9 +138,10 @@ public:
 	////////////////////////////////////////////////////////////////////////////////
 
 	void compute() {
-		boost::shared_ptr<PaloSession> session;
+		session.reset();
 		bool ret = false;
 		for (int commitTry = 0; commitTry < Commitable::COMMIT_REPEATS_CELL_REPLACE; commitTry++) {
+			Context *context = Context::getContext();
 			bool optimistic = commitTry == 0;
 
 			server = Context::getContext()->getServerCopy();
@@ -184,11 +185,7 @@ public:
 				password = jobRequest->password;
 			}
 
-			if (worker != 0 && server->getLoginType() == WORKER_AUTHENTICATION) {
-				if (jobRequest->externPassword != 0) {
-					password = jobRequest->externPassword;
-				}
-			} else if (worker == 0) {
+			if (worker == 0) {
 				if (password == 0 && jobRequest->externPassword != 0) {
 					password = jobRequest->externPassword;
 					useMd5 = false;
@@ -221,10 +218,14 @@ public:
 					} else {
 						throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "unknown login type", "login type", server->getLoginType());
 					}
-				} catch (...) {
+				} catch (ErrorException &origWorkerException) {
 					if (!ssoLogin && server->getLoginType() != WORKER_INFORMATION && (*username == SystemDatabase::NAME_ADMIN || *username == SystemDatabase::NAME_IPS)) {
 						Logger::debug << "external authentication declined for " << *username << ", logging internally" << endl;
-						session = loginInternal(useMd5, sudoName);
+						try {
+							session = loginInternal(useMd5, sudoName);
+						} catch (...) {
+							throw origWorkerException; // to allow libpalo_ng to try again without hash also for admin/ips if http only is active
+						}
 					} else {
 						throw;
 					}
@@ -279,7 +280,7 @@ private:
 			throw ErrorException(ErrorException::ERROR_DATABASE_NOT_FOUND, "system database not found");
 		}
 
-		bool inactive;
+		bool inactive = false;
 		PUser user = sd->getUser(*username, *password, useMd5, &inactive);
 		checkUser(user, false, inactive, *username);
 
@@ -357,7 +358,7 @@ private:
 
 		bool canLogin;
 
-		ResultStatus status = worker->authenticateUser(*username, *password, &canLogin);
+		ResultStatus status = worker->authenticateUser(*username, (jobRequest->externPassword ? *jobRequest->externPassword : *password), &canLogin);
 
 		if (status != RESULT_OK) {
 			throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "worker failed", "username", *username);
@@ -438,7 +439,7 @@ private:
 		bool canLogin;
 		vector<string> groups;
 
-		ResultStatus status = worker->authorizeUser(*username, *password, &canLogin, &groups);
+		ResultStatus status = worker->authorizeUser(*username, (jobRequest->externPassword ? *jobRequest->externPassword : *password), &canLogin, &groups);
 
 		if (status != RESULT_OK) {
 			throw ParameterException(ErrorException::ERROR_AUTHORIZATION_FAILED, "worker failed", "username", *username);
@@ -469,7 +470,7 @@ private:
 			}
 
 			// make sudo
-			bool inactive;
+			bool inactive = false;
 			user = sd->getUser(sudoName, &inactive);
 			checkUser(user, true, inactive, sudoName);
 		}

@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -386,7 +386,7 @@ PProcessorBase AggregationProcessor::getCalculatedValues()
 {
 	if (storage) {
 		if (aggregationPlan->getMaxCount() == UNLIMITED_UNSORTED_PLAN || aggregationPlan->getMaxCount() == UNLIMITED_SORTED_PLAN) {
-			return dynamic_cast<ICellMapStream *>(storage.get())->getValues();
+			return storage->getValues();
 		}
 	}
 	return PProcessorBase();
@@ -431,7 +431,7 @@ void AggregationProcessor::aggregate()
 		}
 	}
 	// create iterator
-	storageReader = dynamic_cast<ICellMapStream *>(storage.get())->getValues();
+	storageReader = storage->getValues();
 }
 
 void AggregationProcessor::initParentKey(const IdentifiersType &key, size_t &multiDimCount, double *fixedWeight)

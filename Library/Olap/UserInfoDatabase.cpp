@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -69,7 +69,8 @@ const ElementItem ConfigDatabase::CONFIG_ITEMS[] = {
 	{"scheduler_smtp_user", Element::STRING},
 	{"scheduler_smtp_password", Element::STRING},
 	{"scheduler_smtp_auth", Element::STRING},
-	{"scheduler_smtp_starttls_enable", Element::STRING}
+	{"scheduler_smtp_starttls_enable", Element::STRING},
+	{"etls_seq", Element::STRING}
 };
 
 const ElementItem ConfigDatabase::CONFIG_ATTR_ITEMS[] = {
@@ -117,7 +118,7 @@ ConfigDatabase::ConfigDatabase(const string &name) : UserInfoDatabase(name), pro
 }
 
 ConfigDatabase::ConfigDatabase(const ConfigDatabase &d) : UserInfoDatabase(d),
-	protect(d.protect), protConfigAttrElems(d.protConfigAttrElems), protConfigElems(d.protConfigElems), protArea(d.protArea), protValues(d.protValues)
+	protect(d.protect), protArea(d.protArea), protValues(d.protValues)
 {
 }
 
@@ -328,9 +329,6 @@ void ConfigDatabase::checkConfigCube(PServer server, PDatabase db, bool &dbChang
 	IdentifierType typeId = attrDim->lookupElementByName(CONFIG_ATTR_ITEMS[1].name, false)->getIdentifier();
 	IdentifierType categId = attrDim->lookupElementByName(CONFIG_ATTR_ITEMS[3].name, false)->getIdentifier();
 	IdentifierType showId = attrDim->lookupElementByName(CONFIG_ATTR_ITEMS[4].name, false)->getIdentifier();
-	protConfigAttrElems.insert(typeId);
-	protConfigAttrElems.insert(categId);
-	protConfigAttrElems.insert(showId);
 
 	IdentifierType pathId = configDim->lookupElementByName(CONFIG_ITEMS[0].name, false)->getIdentifier();
 	IdentifierType hostId = configDim->lookupElementByName(CONFIG_ITEMS[3].name, false)->getIdentifier();
@@ -339,23 +337,19 @@ void ConfigDatabase::checkConfigCube(PServer server, PDatabase db, bool &dbChang
 	IdentifierType passwordId = configDim->lookupElementByName(CONFIG_ITEMS[6].name, false)->getIdentifier();
 	IdentifierType authId = configDim->lookupElementByName(CONFIG_ITEMS[7].name, false)->getIdentifier();
 	IdentifierType enableId = configDim->lookupElementByName(CONFIG_ITEMS[8].name, false)->getIdentifier();
-	protConfigElems.insert(pathId);
-	protConfigElems.insert(hostId);
-	protConfigElems.insert(portId);
-	protConfigElems.insert(userId);
-	protConfigElems.insert(passwordId);
-	protConfigElems.insert(authId);
-	protConfigElems.insert(enableId);
+	IdentifierType etls_seqId = configDim->lookupElementByName(CONFIG_ITEMS[9].name, false)->getIdentifier();
 
 	string s_string = "string";
+	string s_int = "int";
 	string s_bool = "bool";
 	protValues[make_pair(typeId, pathId)] = s_string;
 	protValues[make_pair(typeId, hostId)] = s_string;
-	protValues[make_pair(typeId, portId)] = "int";
+	protValues[make_pair(typeId, portId)] = s_int;
 	protValues[make_pair(typeId, userId)] = s_string;
 	protValues[make_pair(typeId, passwordId)] = "password";
 	protValues[make_pair(typeId, authId)] = s_bool;
 	protValues[make_pair(typeId, enableId)] = s_bool;
+	protValues[make_pair(typeId, etls_seqId)] = s_int;
 
 	string s_scheduler = "scheduler";
 	protValues[make_pair(categId, pathId)] = "files";
@@ -365,6 +359,7 @@ void ConfigDatabase::checkConfigCube(PServer server, PDatabase db, bool &dbChang
 	protValues[make_pair(categId, passwordId)] = s_scheduler;
 	protValues[make_pair(categId, authId)] = s_scheduler;
 	protValues[make_pair(categId, enableId)] = s_scheduler;
+	protValues[make_pair(categId, etls_seqId)] = "etl";
 
 	string s_1 = "1";
 	protValues[make_pair(showId, pathId)] = s_1;
@@ -374,6 +369,7 @@ void ConfigDatabase::checkConfigCube(PServer server, PDatabase db, bool &dbChang
 	protValues[make_pair(showId, passwordId)] = s_1;
 	protValues[make_pair(showId, authId)] = s_1;
 	protValues[make_pair(showId, enableId)] = s_1;
+	protValues[make_pair(showId, etls_seqId)] = "";
 
 	protArea.reset(new CubeArea(db, configCube, 2));
 	PSet s(new Set);
@@ -389,6 +385,7 @@ void ConfigDatabase::checkConfigCube(PServer server, PDatabase db, bool &dbChang
 	s->insert(passwordId);
 	s->insert(authId);
 	s->insert(enableId);
+	s->insert(etls_seqId);
 	protArea->insert(1, s);
 
 	bool changed = false;

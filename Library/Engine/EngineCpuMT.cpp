@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -159,7 +159,7 @@ void AggregationProcessorWorker::operator()()
 	if (hasVals) {
 		boost::unique_lock<boost::mutex> lock(parent.dataMutex);
 		if (parent.threadStorage) {
-			storageReader = dynamic_cast<ICellMapStream *>(storage.get())->getValues();
+			storageReader = storage->getValues();
 			while (storageReader->next()) {
 				parent.threadStorage->add(storageReader->getKey(), storageReader->getDouble());
 			}
@@ -226,7 +226,7 @@ void AggregationProcessorMT::aggregate()
 			CellValueStream *sourceData = sourceDataSP.get();
 			size_t counter = 0;
 			while (sourceData->next()) {
-				if (++counter % 10000) {
+				if (!(++counter % 10000)) {
 					con->check();
 				}
 				if (!storage) {
@@ -240,7 +240,7 @@ void AggregationProcessorMT::aggregate()
 	tp->join(tg);
 	if (threadStorage) {
 		if (storage) {
-			storageReader = dynamic_cast<ICellMapStream *>(threadStorage.get())->getValues();
+			storageReader = threadStorage->getValues();
 			while (storageReader->next()) {
 				storage->add(storageReader->getKey(), storageReader->getDouble());
 			}
@@ -258,7 +258,7 @@ void AggregationProcessorMT::aggregate()
 		Logger::trace << "Aggregated area of " << resultSize << " cells. " << endl;
 	}
 
-	storageReader = dynamic_cast<ICellMapStream *>(storage.get())->getValues();
+	storageReader = storage->getValues();
 }
 
 PCommitable EngineCpuMT::copy() const

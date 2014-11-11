@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -1226,6 +1226,18 @@ void Dimension::changeElementName(PServer server, PDatabase db, Element *element
 	if (checkOut(false, true, false)) {
 		// get element copy pointer
 		element = lookupElement(element->getIdentifier(), true);
+	}
+
+	PSystemDatabase sd = server->getSystemDatabase();
+	if (sd && sd->getIdentifier() == db->getIdentifier()) {
+		PDimension userDim = sd->getUserDimension();
+		if (userDim && userDim->getId() == this->getId()) {
+			Context::getContext()->setRefreshUsers();
+			PUser user = sd->getUser(oldName, NULL);
+			if (user) {
+				Context::getContext()->addRenamedUser(user->getId(), name);
+			}
+		}
 	}
 
 	// delete old name in nameToElement

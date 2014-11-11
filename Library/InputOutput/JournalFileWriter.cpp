@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -83,6 +83,12 @@ JournalMem::JournalMem(JournalFile *file) :
 	FileWriterTXT(FileName()), buf(file)
 {
 	outputFile = new ostream(&buf);
+}
+
+JournalMem::~JournalMem()
+{
+	delete outputFile;
+	outputFile = 0;
 }
 
 JournalFile::JournalFile(const FileName& fileName, PSharedMutex filelock, IdentifierType db, IdentifierType cube) :

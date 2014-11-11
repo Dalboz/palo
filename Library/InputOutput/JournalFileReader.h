@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -83,12 +83,6 @@ public:
 	// common
 	static const string JOURNAL_VERSION;
 
-	// minimal version required
-	static const int minRelease;
-	static const int minSR;
-	static const int minBuild;
-
-
 	struct Version {
 		int release;
 		int sr;
@@ -100,8 +94,15 @@ public:
 		bool isUnknown() const {
 			return release == 0;
 		}
+
+		bool isOld() const {
+			return (*this) < minVersion;
+		}
+
 		bool operator< (const Version &v) const;
 	};
+
+	static const Version minVersion;
 
 public:
 

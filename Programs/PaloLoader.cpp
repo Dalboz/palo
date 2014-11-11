@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -140,7 +140,7 @@ void PaloLoader::loadServer()
 	// create a new server
 	if (!loaded) {
 		try {
-			server->saveServer(PUser());
+			server->saveServer(PUser(), false);
 		} catch (const FileFormatException&) {
 			Logger::error << "server file is corrupted" << endl;
 			throw;
@@ -238,7 +238,7 @@ void PaloLoader::addNewDatabases()
 void PaloLoader::commitChanges()
 {
 	try {
-		server->saveServer(PUser());
+		server->saveServer(PUser(), false);
 
 		PDatabaseList databases = server->getDatabaseList(false);
 
@@ -249,7 +249,7 @@ void PaloLoader::commitChanges()
 
 			if (database->getStatus() == Database::CHANGED) {
 				Logger::info << "auto commiting changes to database '" << database->getName() << "'" << endl;
-				server->saveDatabase(database, PUser(), false, NULL);
+				server->saveDatabase(database, PUser(), false, NULL, false);
 			}
 
 			PCubeList cubes = database->getCubeList(false);

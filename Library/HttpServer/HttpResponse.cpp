@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -29,6 +29,7 @@
  */
 
 #include "HttpServer/HttpResponse.h"
+#include "Olap/Server.h"
 
 extern "C" {
 #include <time.h>
@@ -134,6 +135,12 @@ const StringBuffer& HttpResponse::getHeader()
         header.appendText( fit->first );
         header.appendText( ": " );
         header.appendText( fit->second );
+        header.appendText( CRNL );
+    }
+
+    if (Server::getCrossOrigin().size()) {
+        header.appendText( "Access-Control-Allow-Origin:" );
+        header.appendText( Server::getCrossOrigin() );
         header.appendText( CRNL );
     }
 

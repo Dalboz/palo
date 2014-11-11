@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -54,6 +54,7 @@ private:
 class SERVER_CLASS JournalMem : public FileWriterTXT, public boost::enable_shared_from_this<JournalMem> {
 public:
 	JournalMem(JournalFile *file);
+	virtual ~JournalMem();
 	void appendCommand(const string& user, const string& event, const string& command);
 	void flush() {outputFile->flush();}
 

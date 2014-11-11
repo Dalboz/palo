@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -323,11 +323,11 @@ bool ConstantProcessor::move(const IdentifiersType &key, bool *found)
 	if (value.isEmpty()) {
 		return false;
 	}
-	path = area->find(key);
+	path = area->lowerBound(key);
 	first = false;
 	if (path != area->pathEnd()) {
 		if (found) {
-			*found = true;
+			*found = key.compare(*path) == 0;
 		}
 		return true;
 	}

@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -59,6 +59,7 @@ public:
 	virtual bool get(const IdentifiersType &path, ValueType &value) const = 0;
 	virtual size_t size() const = 0;
 	virtual void setLimit(const IdentifiersType &startPath, uint64_t maxCount) = 0;
+	virtual PProcessorBase getValues() = 0;
 };
 //##############################################################################
 
@@ -75,15 +76,10 @@ public:
 	virtual bool get(const IdentifiersType &path, ValueType &value) const  {WriteLocker w(&m); return pcm->get(path, value);}
 	virtual size_t size() const  {WriteLocker w(&m); return pcm->size();}
 	virtual void setLimit(const IdentifiersType &startPath, uint64_t maxCount)  {WriteLocker w(&m); pcm->setLimit(startPath, maxCount);}
+	virtual PProcessorBase getValues() {WriteLocker w(&m); return pcm->getValues();}
 private:
 	boost::shared_ptr<ICellMap<ValueType> > pcm;
 	mutable Mutex m;
-};
-
-class ICellMapStream {
-public:
-	virtual ~ICellMapStream() {};
-	virtual PProcessorBase getValues() = 0;
 };
 
 template <typename ValueType>
@@ -130,19 +126,12 @@ public:
 	virtual size_t size() const {
 		return MapType::size();
 	}
-	virtual void setLimit(const IdentifiersType &startPath, uint64_t maxCount) {}
-private:
-	size_t _dims;
-};
-
-class DoubleVectorMap : public CellVectorMap<double>, public ICellMapStream {
-public:
-	DoubleVectorMap(size_t dims) : CellVectorMap<double>(dims) {};
-	virtual ~DoubleVectorMap() {};
-
+	virtual void setLimit(const IdentifiersType &startPath, uint64_t maxCount) {
+		// TODO: -jj- implement limit amount of values
+	}
 	class Reader : public ProcessorBase {
 	public:
-		Reader(DoubleVectorMap &cvm) : ProcessorBase(true, PEngineBase()), started(false), pcvm(cvm.shared_from_this()), cvm(cvm), iter(cvm.begin()) {}
+		Reader(CellVectorMap &cvm) : ProcessorBase(true, PEngineBase()), started(false), pcvm(cvm.shared_from_this()), cvm(cvm), iter(cvm.begin()) {}
 		virtual ~Reader() {}
 		virtual bool next() {
 			if (iter != cvm.end()) {
@@ -179,16 +168,18 @@ public:
 	private:
 		bool started;
 		boost::shared_ptr<CellMapBase> pcvm;
-		CellVectorMap<double> &cvm;
-		MapType::const_iterator iter;
+		CellVectorMap &cvm;
+		typename MapType::const_iterator iter;
 		const IdentifiersType *vkey;
-		double val;
+		ValueType val;
 		CellValue cellval;
 	};
 
 	virtual PProcessorBase getValues() {
 		return PProcessorBase(new Reader(*this));
 	}
+private:
+	size_t _dims;
 };
 
 //##############################################################################
@@ -317,31 +308,10 @@ public:
 		this->startPath = startPath;
 		this->maxCount = maxCount;
 	}
-private:
-	IdentifiersType startPath;
-	uint64_t maxCount;
-	const IdentifierType *lastPath;
-	int compareKey(const IdentifierType *key1, const IdentifierType *key2) {
-		for (int dim = 0; dim < _N; dim++) {
-			if (key1[dim] < key2[dim]) {
-				return -1;
-			} else if (key1[dim] > key2[dim]) {
-				return 1;
-			}
-		}
-		return 0;
-	}
-};
-
-template<int _N>
-class DoubleArrayMap : public CellArrayMap<_N, double>, public ICellMapStream {
-public:
-	DoubleArrayMap() : CellArrayMap<_N, double>() {}
-	virtual ~DoubleArrayMap() {};
 
 	class Reader : public ProcessorBase {
 	public:
-		Reader(DoubleArrayMap &cam) : ProcessorBase(true, PEngineBase()), started(false), pcam(cam.shared_from_this()), cam(cam), iter(cam.begin()), vkey(_N) {}
+		Reader(CellArrayMap &cam) : ProcessorBase(true, PEngineBase()), started(false), pcam(cam.shared_from_this()), cam(cam), iter(cam.begin()), vkey(_N) {}
 		virtual ~Reader() {}
 		virtual bool next() {
 			if (iter != cam.end()) {
@@ -360,7 +330,7 @@ public:
 			return cellval;
 		}
 		virtual double getDouble() {
-			return val;
+			return double(val);
 		}
 		virtual const IdentifiersType &getKey() const {
 			if (!started) {
@@ -399,15 +369,29 @@ public:
 	private:
 		bool started;
 		boost::shared_ptr<CellMapBase> pcam;
-		CellArrayMap<_N, double> &cam;
-		typename CellArrayMap<_N, double>::iterator iter;
+		CellArrayMap<_N, ValueType> &cam;
+		typename CellArrayMap::iterator iter;
 		IdentifiersType vkey;
-		double val;
+		ValueType val;
 		CellValue cellval;
 	};
 
 	virtual PProcessorBase getValues() {
 		return PProcessorBase(new Reader(*this));
+	}
+private:
+	IdentifiersType startPath;
+	uint64_t maxCount;
+	const IdentifierType *lastPath;
+	int compareKey(const IdentifierType *key1, const IdentifierType *key2) {
+		for (int dim = 0; dim < _N; dim++) {
+			if (key1[dim] < key2[dim]) {
+				return -1;
+			} else if (key1[dim] > key2[dim]) {
+				return 1;
+			}
+		}
+		return 0;
 	}
 };
 
@@ -460,8 +444,8 @@ boost::shared_ptr<ICellMap<ValueType> > CreateCellMap(size_t dimensions)
 #undef CREATE_CELL_MAP
 #undef CREATE_DEFAULT_MAP
 
-#define CREATE_CELL_MAP(DIMENSIONS) case (DIMENSIONS): pmap.reset(new DoubleArrayMap<(DIMENSIONS)>()); break;
-#define CREATE_DEFAULT_MAP() default: pmap.reset(new DoubleVectorMap(dimensions)); break;
+#define CREATE_CELL_MAP(DIMENSIONS) case (DIMENSIONS): pmap.reset(new CellArrayMap<(DIMENSIONS),double>()); break;
+#define CREATE_DEFAULT_MAP() default: pmap.reset(new CellVectorMap<double>(dimensions)); break;
 
 inline PDoubleCellMap CreateDoubleCellMap(size_t dimensions)
 {

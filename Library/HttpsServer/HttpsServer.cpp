@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -83,7 +83,7 @@ static SSL_CTX * initializeCTX(const string& rootfile, const string& keyfile, co
 	}
 
 	// Create our context
-	SSL_CTX* sslctx = SSL_CTX_new(SSLv23_method());
+	SSL_CTX* sslctx = SSL_CTX_new(TLSv1_2_method());
 
 	// Load our keys and certificates
 	if (!SSL_CTX_use_certificate_chain_file(sslctx, keyfile.c_str())) {

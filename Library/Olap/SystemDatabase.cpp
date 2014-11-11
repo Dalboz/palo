@@ -1,6 +1,6 @@
 /* 
  *
- * Copyright (C) 2006-2013 Jedox AG
+ * Copyright (C) 2006-2014 Jedox AG
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (Version 2) as published
@@ -799,6 +799,16 @@ void SystemDatabase::refreshUsers()
 	if (!users->isCheckedOut()) {
 		users = COMMITABLE_CAST(UserList, users->copy());
 	}
+
+	map<IdentifierType, string> renamedUsers = Context::getContext()->getRenamedUsers();
+	for (map<IdentifierType, string>::const_iterator it = renamedUsers.begin(); it != renamedUsers.end(); ++it) {
+		PUser user = COMMITABLE_CAST(User, users->get(it->first, true));
+		if (user) {
+			user->setName(it->second);
+			users->set(user);
+		}
+	}
+
 	for (UserList::Iterator it = users->begin(); it != users->end();) {
 		PUser user = (*it)->isCheckedOut() ? COMMITABLE_CAST(User, (*it)) : COMMITABLE_CAST(User, (*it)->copy());
 		if (user->refreshAll()) {
