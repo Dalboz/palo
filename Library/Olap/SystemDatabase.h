@@ -339,6 +339,7 @@ public:
 	void updateDatabaseDim(PServer server, bool useDimWorker);
 	void updateDatabaseDim(PServer server, UpdateType type, const string &dbName, const string &dbOldName, bool useDimWorker);
 	void setDbRight(PServer server, PUser user, const string &dbName);
+	void refreshDimsAndCubes();
 
 private:
 	PDimension checkAndCreateDimension(PServer server, const string &name, bool changeable);

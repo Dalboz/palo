@@ -401,9 +401,9 @@ void BrowserDocumentation::defineCubes(const vector<CPCube> * cubes)
 			cache_time_info.push_back("");
 		}
 		cached_areas.push_back(StringUtils::convertToString(areasCount));
-		cached_cells.push_back(UTF8Comparer::doubleToString(cellCount, 0, 0));
-		cached_values_limit.push_back(StringUtils::convertToString(valuesCount)+"/"+UTF8Comparer::doubleToString(cellLimit,0,0)+" ("+(cellLimit ? UTF8Comparer::doubleToString(100*valuesCount/cellLimit,0,2) : "0")+"%)");
-		cached_values_found.push_back(UTF8Comparer::doubleToString(foundCellsCount,0,0));
+		cached_cells.push_back(UTF8Comparer::doubleToString(cellCount, 0, 0, true));
+		cached_values_limit.push_back(StringUtils::convertToString(valuesCount)+"/"+UTF8Comparer::doubleToString(cellLimit,0,0, true)+" ("+(cellLimit ? UTF8Comparer::doubleToString(100*valuesCount/cellLimit,0,2, true) : "0")+"%)");
+		cached_values_found.push_back(UTF8Comparer::doubleToString(foundCellsCount,0,0, true));
 	}
 
 	values["@cube_identifier"] = identifier;

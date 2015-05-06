@@ -235,6 +235,7 @@ public:
 			if (!optimistic) {
 				context->setPesimistic();
 			}
+			context->setTokenUpdate(true);
 
 			ret = server->commit();
 

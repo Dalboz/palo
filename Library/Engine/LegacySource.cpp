@@ -222,7 +222,7 @@ void LegacyRule::generateSources()
 		if (!sourceStreamsNext[source]) {
 			sourceStreamsSP[source].reset();
 		}
-		sourceStreams[source] = sourceStream.get();
+		sourceStreams[source] = sourceStreamsSP[source].get();
 		mem_context->m_recursion_stack.pop();
 	}
 	if (erule->precalcStet && !globalError.isError()) {
@@ -234,7 +234,7 @@ void LegacyRule::generateSources()
 		if (!sourceStreamsNext[source]) {
 			sourceStreamsSP[source].reset();
 		}
-		sourceStreams[source] = sourceStream.get();
+		sourceStreams[source] = sourceStreamsSP[source].get();
 	}
 }
 

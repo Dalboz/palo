@@ -125,7 +125,7 @@ public:
 				double v = v1.doubleValue;
 				int l = (int)v2.doubleValue;
 				int d = (int)v3.doubleValue;
-				result.stringValue = UTF8Comparer::doubleToString(v, l, d);
+				result.stringValue = UTF8Comparer::doubleToString(v, l, d, true);
 			}
 		}
 

@@ -571,7 +571,7 @@ PositionType SubSet::Iterator::getPosition() const
 
 CellValue SubSet::Iterator::getSearchAlias(bool name) const
 {
-	CellValue c;
+	CellValue c(m_impl->sub->getSearchAliasType() != Element::STRING);
 	if (name) {
 		c = m_impl->getName();
 	}
@@ -599,7 +599,7 @@ bool SubSet::Iterator::end() const
 }
 
 SubSet::SubSet(PDatabase db, PDimension dim, PUser user, vector<BasicFilterSettings> &basic, TextFilterSettings &text, SortingFilterSettings &sorting, AliasFilterSettings &alias, FieldFilterSettings &field, vector<StructuralFilterSettings> &structural, vector<DataFilterSettings> &data) :
-	db(db), dim(dim), user(user), m_global_flags(0), basic(basic), text(text), sorting(sorting), alias(alias), field(field), structural(structural), data(data), bound(false), shrinked(false), final(false), topFilled(false)
+	db(db), dim(dim), user(user), m_global_flags(0), basic(basic), text(text), sorting(sorting), alias(alias), field(field), structural(structural), data(data), searchAliasType(Element::STRING), sortAliasType(Element::STRING), bound(false), shrinked(false), final(false), topFilled(false)
 {
 }
 
@@ -689,12 +689,14 @@ void SubSet::mergePicklist()
 	pickMerge.clear();
 }
 
-IdentifierType SubSet::validateAttribute(const string& attr)
+IdentifierType SubSet::validateAttribute(const string& attr, Element::Type &type)
 {
 	IdentifierType id = NO_IDENTIFIER;
 	CPAttributesDimension ad = AttributedDimension::getAttributesDimension(db, dim->getName());
 	if (ad) {
-		id = ad->findElementByName(attr, user.get(), false)->getIdentifier();
+		Element *e = ad->findElementByName(attr, user.get(), false);
+		id = e->getIdentifier();
+		type = e->getElementType();
 	} else {
 		throw ErrorException(ErrorException::ERROR_INVALID_TYPE, "Attempt to use non-existing attribute '" + attr + "'");
 	}

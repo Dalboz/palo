@@ -54,6 +54,19 @@ private:
 	size_t saveNode(PPlanNode node);
 	PPlanNode checkInfiniteRecursion();
 private:
+	struct Params {
+		Params(PCubeArea area, CubeArea::CellType cellType, RulesType rulesType, bool skipEmpty, CPRule continueRule) :
+			area(area), cellType(cellType), rulesType(rulesType), skipEmpty(skipEmpty), continueRule(continueRule)
+		{
+		}
+		PCubeArea area;
+		CubeArea::CellType cellType;
+		RulesType rulesType;
+		bool skipEmpty;
+		CPRule continueRule;
+		PPlanNode plan;
+		bool operator==(const Params& o) const;
+	};
 	Planner *getRootPlanner()
 	{
 		Planner *result = this;
@@ -70,6 +83,7 @@ private:
 	vector<PRule> activeRules;
 	CPRule continueRule;
 	CPRule currentRule;
+	vector<Params> cache;
 };
 
 }

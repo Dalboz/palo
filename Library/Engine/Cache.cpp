@@ -55,18 +55,41 @@ private:
 	Area::PathIterator end;
 	bool endReached;
 	CPArea filter;
-	IdentifiersType vkey;
+	IdentifiersType lastId;
+	vector<bool> lastTest;
 };
 
 bool FilteredCellMapStream::next()
 {
+//	Logger::info << this << " N1" << endl;
 	while (input->next()) {
-		if (filter->find(input->getKey()) != end) {
-			vkey = input->getKey();
+		const IdentifiersType &key = input->getKey();
+		IdentifiersType::const_iterator kit;
+		IdentifiersType::iterator lit;
+		vector<bool>::iterator tit;
+		if (lastId.empty()) {
+			lastId.resize(key.size(), NO_IDENTIFIER);
+			lastTest.resize(key.size(), false);
+		}
+
+		size_t dimOrdinal = 0;
+		for (kit = key.begin(), lit = lastId.begin(), tit = lastTest.begin(); kit != key.end(); ++kit,++lit,++tit,++dimOrdinal) {
+			if (*kit != *lit) {
+				// new Id -> cache new id and test result
+				*lit = *kit;
+				*tit = filter->find(dimOrdinal, *kit) != filter->elemEnd(dimOrdinal);
+			}
+			if (!*tit) {
+				break;
+			}
+		}
+		if (kit == key.end()) {
 			val = input->getDouble();
+//			Logger::info << this << " N " << getKey() << endl;
 			return true;
 		}
 	}
+//	Logger::info << this << " N end" << endl;
 	return false;
 }
 
@@ -77,7 +100,7 @@ const CellValue &FilteredCellMapStream::getValue()
 
 const IdentifiersType &FilteredCellMapStream::getKey() const
 {
-	return vkey;
+	return input->getKey();
 }
 
 void FilteredCellMapStream::reset()

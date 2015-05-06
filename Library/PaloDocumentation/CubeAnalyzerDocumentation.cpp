@@ -127,37 +127,37 @@ CubeAnalyzerDocumentation::CubeAnalyzerDocumentation(PDatabase database, PCube c
 	vector<string> typeDescription;
 
 	if (totalCells) {
-		sizesPerc.push_back(UTF8Comparer::doubleToString(100*aggregatedCells/totalCells, 0, 2));
+		sizesPerc.push_back(UTF8Comparer::doubleToString(100*aggregatedCells/totalCells, 0, 2, true));
 		sizesCells.push_back(StringUtils::convertToString(aggregatedCells));
 		sizesAreas.push_back(StringUtils::convertToString(aggregatedAreas));
 		ruleIDs.push_back("");
 		typeDescription.push_back("Aggregated cells");
 
-		sizesPerc.push_back(UTF8Comparer::doubleToString(100*baseCells/totalCells, 0, 2));
+		sizesPerc.push_back(UTF8Comparer::doubleToString(100*baseCells/totalCells, 0, 2, true));
 		sizesCells.push_back(StringUtils::convertToString(baseCells));
 		sizesAreas.push_back(StringUtils::convertToString(baseAreas));
 		ruleIDs.push_back("");
 		typeDescription.push_back("Base cells");
 
-		sizesPerc.push_back(UTF8Comparer::doubleToString(100*ruleCells/totalCells, 0, 2));
+		sizesPerc.push_back(UTF8Comparer::doubleToString(100*ruleCells/totalCells, 0, 2, true));
 		sizesCells.push_back(StringUtils::convertToString(ruleCells));
 		sizesAreas.push_back(StringUtils::convertToString(ruleAreas));
 		ruleIDs.push_back("");
 		typeDescription.push_back("Rule calculated cells - total");
 
-		sizesPerc.push_back(UTF8Comparer::doubleToString(100*newRuleCells/totalCells, 0, 2));
+		sizesPerc.push_back(UTF8Comparer::doubleToString(100*newRuleCells/totalCells, 0, 2, true));
 		sizesCells.push_back(StringUtils::convertToString(newRuleCells));
 		sizesAreas.push_back(StringUtils::convertToString(newRuleAreas));
 		ruleIDs.push_back(IDsToString(newRulesIds));
 		typeDescription.push_back("Rule calculated cells - Data Driven Calculation");
 
-		sizesPerc.push_back(UTF8Comparer::doubleToString(100*markedRuleCells/totalCells, 0, 2));
+		sizesPerc.push_back(UTF8Comparer::doubleToString(100*markedRuleCells/totalCells, 0, 2, true));
 		sizesCells.push_back(StringUtils::convertToString(markedRuleCells));
 		sizesAreas.push_back(StringUtils::convertToString(markedRuleAreas));
 		ruleIDs.push_back(IDsToString(markedRulesIds));
 		typeDescription.push_back("Rule calculated cells - Marker Driven Calculation");
 
-		sizesPerc.push_back(UTF8Comparer::doubleToString(100*legacyRuleCells/totalCells, 0, 2));
+		sizesPerc.push_back(UTF8Comparer::doubleToString(100*legacyRuleCells/totalCells, 0, 2, true));
 		sizesCells.push_back(StringUtils::convertToString(legacyRuleCells));
 		sizesAreas.push_back(StringUtils::convertToString(legacyRuleAreas));
 		ruleIDs.push_back(IDsToString(legacyRulesIds));

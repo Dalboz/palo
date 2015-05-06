@@ -81,7 +81,7 @@ public:
 
 		cubes = dimension->getCubes(user, database);
 
-		generateCubesResponse(database, &cubes, jobRequest->showNormal, jobRequest->showSystem, jobRequest->showAttribute, jobRequest->showInfo, jobRequest->showGputype);
+		generateCubesResponse(database, &cubes, jobRequest->showNormal, jobRequest->showSystem, jobRequest->showAttribute, jobRequest->showInfo, jobRequest->showGputype, false);
 	}
 };
 

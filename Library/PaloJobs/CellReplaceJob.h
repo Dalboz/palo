@@ -94,7 +94,7 @@ public:
 			findPath();
 			findLockedPaths(0);
 
-			cube->disableTokenUpdate();
+			cube->disableTokenUpdate(database->getType());
 
 			// get splash mode
 			SplashMode mode = PaloJob::splashMode(jobRequest->splash);
@@ -143,7 +143,7 @@ public:
 				cvc->addPathAndValue(cellPath, value, !eventProcessor, cellType);
 			} else {
 				if (jobRequest->value) {
-					double dvalue = StringUtils::stringToDouble(*(jobRequest->value));
+					double dvalue = UTF8Comparer::stringToDouble(*(jobRequest->value), false);
 					if (dvalue != 0) {
 						value = dvalue;
 					}

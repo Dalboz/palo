@@ -221,7 +221,8 @@ void TextFilter::applySettings()
 		}
 		long attr_id = -1;
 		if (!m_attr.empty()) {
-			attr_id = m_subset_ref.validateAttribute(m_attr);
+			Element::Type t;
+			attr_id = m_subset_ref.validateAttribute(m_attr, t);
 		}
 		//TODO:this is workaround because we always get alias-type Regexes (Bug in XLL)
 		validateRegex(*i);

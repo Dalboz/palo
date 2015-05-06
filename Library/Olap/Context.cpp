@@ -356,10 +356,14 @@ bool Context::makeCubeChanges(bool merge, PServer actual)
 			setSvsChangeStatusContext(SVS_NONE);
 		}
 
-		if (server) {
+		if (ret && server) {
 			Logger::trace << "Rebuilding markers" << endl;
 			calcNewMarkerRules();
 			server->triggerMarkerCalculation();
+
+			if (!isWorker() && getRefreshUsers()) {
+				server->refreshUsers();
+			}
 		}
 	}
 	return ret;

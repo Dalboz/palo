@@ -472,7 +472,7 @@ public:
 
 	void updateClientCacheToken();
 
-	void disableTokenUpdate();
+	void disableTokenUpdate(ItemType dbType);
 
 	////////////////////////////////////////////////////////////////////////////////
 	/// @brief deletes element

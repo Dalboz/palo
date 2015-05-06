@@ -450,7 +450,7 @@ void PaloOptions::parseOptions(OptionsIterator& iter, bool commandLine)
 				break;
 
 			case 'b':
-				d = StringUtils::stringToDouble(optarg);
+				d = UTF8Comparer::stringToDouble(optarg, false);
 				cacheBarrier = d;
 				break;
 
@@ -552,7 +552,7 @@ void PaloOptions::parseOptions(OptionsIterator& iter, bool commandLine)
 				break;
 
 			case 'L':
-				d = StringUtils::stringToDouble(optarg);
+				d = UTF8Comparer::stringToDouble(optarg, false);
 				splashLimits.push_back(d);
 				break;
 

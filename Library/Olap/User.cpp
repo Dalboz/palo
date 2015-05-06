@@ -428,6 +428,8 @@ bool User::getGroups(PSystemDatabase sysDb, bool checkExists)
 		}
 	}
 
+	std::sort(groups.begin(), groups.end());
+
 	return true;
 }
 
@@ -1005,11 +1007,18 @@ void User::refreshRights()
 
 bool User::merge(const CPCommitable &o, const PCommitable &p)
 {
-	if (o && old) {
-		throw ErrorException(ErrorException::ERROR_API_CALL_NOT_IMPLEMENTED, "Users don't merge.");
+	checkCheckedOut();
+	bool ret = true;
+	if (old != 0 && o != 0) {
+		if (old != o) {
+			ret = false;
+		}
 	}
-	commitintern();
-	return true;
+	if (ret) {
+		mergeint(o, p);
+		commitintern();
+	}
+	return ret;
 }
 
 PCommitable User::copy() const

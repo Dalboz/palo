@@ -109,12 +109,12 @@ void DimensionDFilterJob::compute()
 			if (jobRequest->values->size() > 1) {
 				if (jobRequest->values->at(1) != "0") {
 					subdef.data[0].upper_percentage_set = true;
-					subdef.data[0].upper_percentage = StringUtils::stringToDouble(jobRequest->values->at(1));
+					subdef.data[0].upper_percentage = UTF8Comparer::stringToDouble(jobRequest->values->at(1), false);
 				}
 				if (jobRequest->values->size() > 2) {
 					if (jobRequest->values->at(2) != "0") {
 						subdef.data[0].lower_percentage_set = true;
-						subdef.data[0].lower_percentage = StringUtils::stringToDouble(jobRequest->values->at(2));
+						subdef.data[0].lower_percentage = UTF8Comparer::stringToDouble(jobRequest->values->at(2), false);
 					}
 				}
 			}

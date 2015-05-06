@@ -355,7 +355,7 @@ void Recursion_Stack::push(const Cube *cube, const Rule *rule, const IdentifierT
 			continue;
 		}
 
-		Logger::warning << "recursion in rule found (cube " << cube->getId() << ")" << endl;
+		Logger::warning << "recursion in rule found (cube: " << cube->getId() << " rule: " << (rule ? rule->getId() : NO_IDENTIFIER) << " )" << endl;
 		if (rule) {
 			throw ErrorException(ErrorException::ERROR_RULE_HAS_CIRCULAR_REF, "cube=" + StringUtils::convertToString(cube->getId()) + "&rule=" + StringUtils::convertToString(rule->getId()), rule->getId());
 		} else {

@@ -120,8 +120,12 @@ public:
 	const CellValue &getSearchAlias(IdentifierType id, const CellValue &def);
 	const CellValue &getSortingAlias(IdentifierType id, const CellValue &def);
 	const CellValue &getValue(IdentifierType id);
+	Element::Type getSearchAliasType() {return searchAliasType;}
+	Element::Type getSortingAliasType() {return sortAliasType;}
 	void setSearchAlias(IdentifierType id, const CellValue &alias);
+	void setSearchAliasType(Element::Type type) {searchAliasType = type;}
 	void setSortingAlias(IdentifierType id, const CellValue &alias);
+	void setSortingAliasType(Element::Type type) {sortAliasType = type;}
 	void setValue(IdentifierType id, const CellValue &val);
 
 	void setChildren(IdentifierType id, boost::shared_ptr<ElementsWeightType> ch);
@@ -130,7 +134,7 @@ public:
 	bool queryGlobalFlag(GlobalFlag f);
 	void setGlobalFlag(GlobalFlag f);
 	void mergePicklist();
-	IdentifierType validateAttribute(const string& attr);
+	IdentifierType validateAttribute(const string& attr, Element::Type &type);
 	bool checkId(Element *el);
 	bool checkPath(Element *elem);
 	PDimension getDimension();
@@ -165,7 +169,9 @@ private:
 
 	map<IdentifierType, CellValue> values;
 	map<IdentifierType, CellValue> searchAlias;
+	Element::Type searchAliasType;
 	map<IdentifierType, CellValue> sortAlias;
+	Element::Type sortAliasType;
 	map<IdentifierType, boost::shared_ptr<ElementsWeightType> > childrenMap;
 	bool bound;
 	ElementsType elemBound;
@@ -195,9 +201,28 @@ struct SortElem {
 	SortElem() : sub(0), el(0), dep(NO_IDENTIFIER), ind(NO_IDENTIFIER), cons(0) {}
 	SortElem(SubSet *sub, Element *el, IndentType ind, DepthType dep, IdentifierType cons) : sub(sub), el(el), dep(dep), ind(ind), cons(cons) {}
 	const U_NAMESPACE_QUALIFIER UnicodeString &getUName() const {if (uname.isEmpty()) const_cast<SortElem *>(this)->uname = U_NAMESPACE_QUALIFIER UnicodeString::fromUTF8(el->getName(sub->dim->getElemNamesVector()).c_str()); return uname;}
-	const CellValue &getSearchAlias() const {if (val.isEmpty()) {const_cast<SortElem *>(this)->val = el->getName(sub->dim->getElemNamesVector()); const_cast<SortElem *>(this)->val = sub->getSearchAlias(el->getIdentifier(), val);} return val;}
+	const CellValue &getSearchAlias() const {
+		if (val.isEmpty()) {
+			if (sub->getSearchAliasType() == Element::STRING) {
+				const_cast<SortElem *>(this)->val = el->getName(sub->dim->getElemNamesVector());
+			} else {
+				const_cast<SortElem *>(this)->val = 0.0;
+			}
+			const_cast<SortElem *>(this)->val = sub->getSearchAlias(el->getIdentifier(), val);
+		} return val;
+	}
 	const CellValue &getValue() const {return sub->getValue(el->getIdentifier());}
-	const CellValue &getSortingAlias() const {if (val.isEmpty()) {const_cast<SortElem *>(this)->val = el->getName(sub->dim->getElemNamesVector()); const_cast<SortElem *>(this)->val = sub->getSortingAlias(el->getIdentifier(), val);} return val;}
+	const CellValue &getSortingAlias() const {
+		if (val.isEmpty()) {
+			if (sub->getSortingAliasType() == Element::STRING) {
+				const_cast<SortElem *>(this)->val = el->getName(sub->dim->getElemNamesVector());
+			} else {
+				const_cast<SortElem *>(this)->val = 0.0;
+			}
+			const_cast<SortElem *>(this)->val = sub->getSortingAlias(el->getIdentifier(), val);
+		}
+		return val;
+	}
 };
 
 typedef boost::shared_ptr<SubSet> PSubSet;

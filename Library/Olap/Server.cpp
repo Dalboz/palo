@@ -1106,21 +1106,26 @@ void Server::renameDatabase(PDatabase database, const string & name, bool notify
 	}
 }
 
+void Server::checkValidDatabaseName(const string &dbName)
+{
+	if (dbName.empty()) {
+		throw ParameterException(ErrorException::ERROR_INVALID_DATABASE_NAME, "database name is empty", "name", dbName);
+	}
+	if (dbName.find_first_not_of(VALID_DATABASE_CHARACTERS) != string::npos) {
+		throw ParameterException(ErrorException::ERROR_INVALID_DATABASE_NAME, "database name contains an illegal character", "name", dbName);
+	}
+	if (dbName[0] == '.') {
+		throw ParameterException(ErrorException::ERROR_INVALID_DATABASE_NAME, "database name begins with a dot character", "name", dbName);
+	}
+}
+
 PDatabase Server::addDatabase(const string & realName, PUser user, IdentifierType type, bool useDimWorker)
 {
 	checkCheckedOut();
 	checkDatabaseAccessRight(user, RIGHT_WRITE);
 	IdentifierType id;
-	if (realName.empty()) {
-		throw ParameterException(ErrorException::ERROR_INVALID_DATABASE_NAME, "database name is empty", "name", realName);
-	}
+	checkValidDatabaseName(realName);
 	string name = realName;
-	if (name.find_first_not_of(VALID_DATABASE_CHARACTERS) != string::npos) {
-		throw ParameterException(ErrorException::ERROR_INVALID_DATABASE_NAME, "database name contains an illegal character", "name", name);
-	}
-	if (name[0] == '.') {
-		throw ParameterException(ErrorException::ERROR_INVALID_DATABASE_NAME, "database name begins with a dot character", "name", name);
-	}
 	if (0 == type) {
 		//retrieve the type ID from the database file
 		boost::shared_ptr<FileReader> database_file(FileReader::getFileReader(computeDatabaseFileName(fileName, name)));
@@ -1223,6 +1228,10 @@ void Server::loadDatabase(PDatabase database, PUser user)
 
 PDatabase Server::restoreDatabase(const string &zipFileName, PUser user, string *dbName)
 {
+	if (dbName) {
+		checkValidDatabaseName(*dbName);
+	}
+
 	checkCheckedOut();
 	checkSystemOperationRight(user, RIGHT_WRITE);
 	if (!dbs->isCheckedOut()) {
@@ -1499,15 +1508,13 @@ bool Server::merge(const CPCommitable &o, const PCommitable &p)
 	Context *context = Context::getContext();
 	ret = context->makeCubeChanges(true, writersserver);
 	CPServer server = CONST_COMMITABLE_CAST(Server, o);
-	if (ret && systemDatabase) {
-		systemDatabase = COMMITABLE_CAST(SystemDatabase, dbs->get(systemDatabase->getId(), true));
-		ret = systemDatabase->mergespecial(server->systemDatabase, shared_from_this(), false);
-	}
-	if (ret && systemDatabase && dbs->isCheckedOut()) {
-		dbs->set(systemDatabase);
-		if (context->getRefreshUsers()) {
-			systemDatabase->refreshUsers();
+	bool dbsCheckedOut = dbs->isCheckedOut();
+	if (ret && systemDatabase && dbsCheckedOut) {
+		if (!systemDatabase->isCheckedOut()) {
+			systemDatabase = COMMITABLE_CAST(SystemDatabase, dbs->get(systemDatabase->getId(), true));
+			dbs->set(systemDatabase);
 		}
+		ret = systemDatabase->mergespecial(server->systemDatabase, shared_from_this(), false);
 	}
 	if (ret) {
 		CPServer oldserver = CONST_COMMITABLE_CAST(Server, old);
@@ -1573,7 +1580,7 @@ bool Server::merge(const CPCommitable &o, const PCommitable &p)
 		}
 	}
 
-	if (ret && systemDatabase) {
+	if (ret && systemDatabase && dbsCheckedOut) {
 		ret = systemDatabase->mergespecial(server->systemDatabase, shared_from_this(), true);
 	}
 	if (ret) {
@@ -1582,6 +1589,15 @@ bool Server::merge(const CPCommitable &o, const PCommitable &p)
 		context->deleteCubesFromDisk();
 		context->deleteDatabasesFromDisk();
 	}
+	//if (systemDatabase) {
+	//	PUserList users = systemDatabase->getUsers(false);
+	//	if (users) {
+	//		for (UserList::Iterator it = users->begin(); it != users->end(); ++it) {
+	//			PUser user = COMMITABLE_CAST(User, *it);
+	//			cout << user->getId() << ", " << user->getName() << endl;
+	//		}
+	//	}
+	//}
 	return ret;
 }
 
@@ -1850,6 +1866,16 @@ void Server::setDefaultDbRight(string right)
 RightsType Server::getDefaultDbRight()
 {
 	return defaultDbRight;
+}
+
+void Server::refreshUsers()
+{
+	if (systemDatabase && dbs->isCheckedOut()) {
+		systemDatabase = COMMITABLE_CAST(SystemDatabase, dbs->get(systemDatabase->getId(), true));
+		dbs->set(systemDatabase);
+		systemDatabase->refreshDimsAndCubes();
+		systemDatabase->refreshUsers();
+	}
 }
 
 ostream& operator<<(ostream& ostr, const vector<CPDatabase> &vdb)

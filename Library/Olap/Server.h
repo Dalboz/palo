@@ -431,6 +431,7 @@ public:
 
 	static void setDefaultDbRight(string right);
 	static RightsType getDefaultDbRight();
+	void refreshUsers();
 
 protected:
 	Server(const FileName & fileName);
@@ -444,6 +445,8 @@ private:
 	void saveServerDatabases(FileWriter *file);
 	void addCubeToList(PDatabase database, PCube cube);
 	void saveDatabaseCubes(PDatabase database);
+
+	void checkValidDatabaseName(const string &dbName);
 
 	void checkDatabaseAccessRight(PUser user, RightsType minimumRight) const {
 		if (User::checkUser(user)) user->checkRoleRight(User::databaseRight, minimumRight);

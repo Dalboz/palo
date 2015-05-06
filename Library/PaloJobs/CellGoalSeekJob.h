@@ -116,9 +116,9 @@ public:
 				throw ParameterException(ErrorException::ERROR_PARAMETER_MISSING, "Invalid GoalSeek type. Area parameter not defined.", "type", "");
 			}
 
-			cube->disableTokenUpdate();
+			cube->disableTokenUpdate(database->getType());
 
-			double value = StringUtils::stringToDouble(*(jobRequest->value));
+			double value = UTF8Comparer::stringToDouble(*(jobRequest->value), false);
 
 			bool unused = false; //NULL is also an unused value
 			PCellValueContext cvc = PCellValueContext(new CellValueContext(cube, CellValueContext::CELL_GOAL_SEEK_JOB, database, user, session, unused, unused, (int)unused, PPaths(), PCubeArea(), unused, NULL));

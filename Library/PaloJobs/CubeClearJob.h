@@ -83,7 +83,7 @@ public:
 			findDatabase(true, true);
 			findCube(true, true);
 
-			cube->disableTokenUpdate();
+			cube->disableTokenUpdate(database->getType());
 
 			if (jobRequest->complete) {
 				if (Logger::isTrace())
@@ -91,7 +91,7 @@ public:
 
 				cube->clearCells(server, database, user, true);
 			} else if (cube->sizeFilledCells() > 0) {
-				uint32_t numResult = 0;
+				double numResult = 0;
 				PCubeArea paths;
 
 				const IdentifiersType* dims = cube->getDimensions();

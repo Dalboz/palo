@@ -1250,6 +1250,9 @@ void Dimension::changeElementName(PServer server, PDatabase db, Element *element
 	// add new name to nameToElement
 	(*namesMap)[nameId] = (*idsMap)[element->getIdentifier()];
 
+	if (namesMap->defragmentNeeded()) {
+		defragmentNames();
+	}
 	// dimension has been changed
 	setStatus(db, CHANGED);
 
@@ -1280,6 +1283,25 @@ void Dimension::changeElementName(PServer server, PDatabase db, Element *element
 		journal->appendInteger(element->getIdentifier());
 		journal->appendEscapeString(name);
 		journal->nextLine();
+	}
+}
+
+void Dimension::defragmentNames()
+{
+	checkCheckedOut();
+
+	PNameIdSlimMap oldMap = namesMap;
+	namesMap = boost::shared_ptr<NameIdSlimMap>(new NameIdSlimMap(4096));
+
+	for (size_t pos = 0; pos < idsMap->size(); ++pos) {
+		Element *element = lookupElementByPosition(pos, true);
+		if (!element || element->getElementType() == Element::UNDEFINED) {
+			continue;
+		}
+		string name = element->getName(oldMap->getStringVector());
+		StringVector::StringId nameId = namesMap->pushToVector(name);
+		element->setName(nameId);
+		(*namesMap)[nameId] = (*idsMap)[element->getIdentifier()];
 	}
 }
 
@@ -2206,6 +2228,10 @@ void Dimension::deleteElements(PServer server, PDatabase db, IdentifiersType ele
 		}
 
 		Logger::trace << "elements pointers updated" << endl;
+
+		if (namesMap->defragmentNeeded()) {
+			defragmentNames();
+		}
 	}
 	Logger::trace << listSize << " elements deleted" << endl;
 

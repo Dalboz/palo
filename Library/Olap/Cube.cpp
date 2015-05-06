@@ -1083,7 +1083,12 @@ void Cube::saveCubeCells(FileWriter *file, PServer server, PDatabase db, bool ch
 		file->nextLine();
 	} else {
 		int32_t valuesCounter = 0;
-		PCellStream cs = calculateArea(area, CubeArea::BASE_NUMERIC, NO_RULES, true, UNLIMITED_UNSORTED_PLAN);
+		PPlanNode plan = createPlan(area, CubeArea::BASE_NUMERIC, NO_RULES, true, UNLIMITED_UNSORTED_PLAN);
+		PCellStream cs;
+		if (plan) {
+			cs = evaluatePlan(plan, EngineBase::CPU, true);
+		}
+//		PCellStream cs = calculateArea(area, CubeArea::BASE_NUMERIC, NO_RULES, true, UNLIMITED_UNSORTED_PLAN);
 		if (cs) {
 			while (cs->next()) {
 				valuesCounter++;
@@ -1637,7 +1642,6 @@ void Cube::clearCells(PServer server, PDatabase db, PCubeArea areaElements, PUse
 
 	if (additiveCommit) {
 		commitChangesIntern(true, user, false);
-		additiveCommit = false;
 	}
 
 	size_t valueCount = sizeFilledNumericCells();
@@ -2386,6 +2390,8 @@ void Cube::commitChangesIntern(bool checkLocks, PUser user, bool disjunctive)
 	checkValueLocks(roll, user, storage.get());
 	storage = engine->getCreateStorage(markerStorageId, pathTranslator, EngineBase::Marker);
 	storage->commitChanges(false, false, false);
+	additiveCommit = false;
+
 	// wait for all asynchronous operations to finish - can throw an exception
 	try {
 		for (AsyncResults::iterator asyncOp = pendingWrites.begin(); asyncOp != pendingWrites.end(); ++asyncOp) {
@@ -2982,10 +2988,14 @@ void Cube::updateClientCacheToken()
 	clientCacheToken->getNewId();
 }
 
-void Cube::disableTokenUpdate()
+void Cube::disableTokenUpdate(ItemType dbType)
 {
 	if (saveType != RIGHTS || dimensions.size() != 2 ) {
 		Context::getContext()->setTokenUpdate(false);
+	} else if (dbType == SYSTEMTYPE) {
+		if (getName() != SystemDatabase::NAME_GROUP_DATABASE_CUBE && getName() != SystemDatabase::NAME_USER_GROUP_CUBE && getName() != SystemDatabase::NAME_GROUP_ROLE && getName() != SystemDatabase::NAME_ROLE_RIGHT_OBJECT_CUBE) {
+			Context::getContext()->setTokenUpdate(false);
+		}
 	}
 }
 
@@ -3289,7 +3299,6 @@ bool Cube::deleteElements(PServer server, PDatabase db, PUser user, const string
 
 		if (additiveCommit) {
 			commitChangesIntern(true, user, false);
-			additiveCommit = false;
 		}
 
 		PSet strElemsToDelete = PSet(new Set());

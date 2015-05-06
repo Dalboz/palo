@@ -800,7 +800,7 @@ void PaloHttpRequest::fillVectorDouble(vector<double>*& doubles, char* valueStar
 
 	while (pos < size) {
 		string s = StringUtils::getNextElement(buffer, pos, ',', false, dummyBuffer);
-		double v = StringUtils::stringToDouble(s);
+		double v = UTF8Comparer::stringToDouble(s, false);
 		doubles->push_back(v);
 	}
 }
@@ -947,7 +947,7 @@ void PaloHttpRequest::fillVectorVectorDouble(vector<vector<double> >*& doubles, 
 
 			while (pos2 < s.size()) {
 				string s2 = StringUtils::getNextElement(s, pos2, second, false, dummyBuffer);
-				double d = StringUtils::stringToDouble(s2);
+				double d = UTF8Comparer::stringToDouble(s2, false);
 				v.push_back(d);
 			}
 
@@ -1254,7 +1254,7 @@ bool PaloHttpRequest::fillDataFilter(DataFilterSettings &filter, vector<string>:
 			filter.cmp.par1s = StringUtils::unQuote(*sit++);
 		} else {
 			if (!sit->empty()) {
-				filter.cmp.par1d = StringUtils::stringToDouble(*sit++);
+				filter.cmp.par1d = UTF8Comparer::stringToDouble(*sit++, false);
 			} else {
 				ret = false;
 			}
@@ -1272,7 +1272,7 @@ bool PaloHttpRequest::fillDataFilter(DataFilterSettings &filter, vector<string>:
 			filter.cmp.par2s = StringUtils::unQuote(*sit++);
 		} else {
 			if (!sit->empty()) {
-				filter.cmp.par2d = StringUtils::stringToDouble(*sit++);
+				filter.cmp.par2d = UTF8Comparer::stringToDouble(*sit++, false);
 			} else {
 				ret = false;
 			}
@@ -1303,7 +1303,7 @@ bool PaloHttpRequest::fillDataFilter(DataFilterSettings &filter, vector<string>:
 	if (ret && sit != send) {
 		if (!sit->empty()) {
 			filter.upper_percentage_set = true;
-			filter.upper_percentage = StringUtils::stringToDouble(*sit);
+			filter.upper_percentage = UTF8Comparer::stringToDouble(*sit, false);
 		} else {
 			filter.upper_percentage_set = false;
 		}
@@ -1314,7 +1314,7 @@ bool PaloHttpRequest::fillDataFilter(DataFilterSettings &filter, vector<string>:
 	if (ret && sit != send) {
 		if (!sit->empty()) {
 			filter.lower_percentage_set = true;
-			filter.lower_percentage = StringUtils::stringToDouble(*sit);
+			filter.lower_percentage = UTF8Comparer::stringToDouble(*sit, false);
 		} else {
 			filter.lower_percentage_set = false;
 		}

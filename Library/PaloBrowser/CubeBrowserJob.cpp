@@ -139,7 +139,7 @@ void CubeBrowserJob::compute()
 	}
 	pdims = &dims;
 
-	uint32_t numResult = 0;
+	double numResult = 0;
 	PCubeArea cubeArea;
 	string pathStringMessage = "";
 

@@ -727,6 +727,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 				defValue = 0;
 				notFoundStatus = true;
 			} else {
+				m_mem_context->m_recursion_stack.push(rule->cube->acube, rule->arule, path);
 				*sp++ = val_0;
 				CellValue val;
 				CPDatabase adb = CONST_COMMITABLE_CAST(Database, context->getParent(rule->cube->acube->shared_from_this()));
@@ -737,6 +738,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 					val = cs->getValue();
 				}
 				val_0 = val;
+				m_mem_context->m_recursion_stack.pop();
 			}
 		}
 		break;
@@ -754,6 +756,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 				if (is_string(path, *rule->cube)) {
 					val_0 = rule->cube->strStorage->valuesCount() ? rule->cube->strStorage->getCellValue(apath) : CellValue(false);
 				} else if (is_consolidation(path, *rule->cube)) {
+					m_mem_context->m_recursion_stack.push(rule->cube->acube, rule->arule, path);
 					CellValue val;
 					CPDatabase adb = CONST_COMMITABLE_CAST(Database, context->getParent(rule->cube->acube->shared_from_this()));
 					PCubeArea calcArea(new CubeArea(adb, CONST_COMMITABLE_CAST(Cube, rule->cube->acube->shared_from_this()), apath));
@@ -762,6 +765,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 						val = cs->getValue();
 					}
 					val_0 = val;
+					m_mem_context->m_recursion_stack.pop();
 				} else {
 					// base numeric cell
 					val_0 = rule->cube->numStorage->valuesCount() ? rule->cube->numStorage->getCellValue(apath) : CellValue();
@@ -1168,7 +1172,7 @@ void virtual_machine::compute(EngineBase *engine, IdentifierType *path, ERule* s
 				int d = (int)val_0.getNumeric();
 				int l = (int)(--sp)->getNumeric();
 				double v = (--sp)->getNumeric();
-				val_0 = UTF8Comparer::doubleToString(v, l, d);
+				val_0 = UTF8Comparer::doubleToString(v, l, d, true);
 				break;
 			}
 

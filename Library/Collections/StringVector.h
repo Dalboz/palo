@@ -71,6 +71,7 @@ public:
 	void erase(const iterator &it);
 	bool casecmp(StringId id1, StringId id2) const;
 	void clear();
+	bool defragmentNeeded() const;
 
 	virtual bool merge(const CPCommitable &o, const PCommitable &p);
 	virtual PCommitable copy() const;

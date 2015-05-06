@@ -94,7 +94,12 @@ void CreateAxis::createAxis(size_t curr, bool check_limit)
 			} else {
 				job->appendElement(&body, it->first, it->second.getElement(), 0, false, vRights, it->second.getDepth(), it->second.getIndent());
 			}
-			body.appendCsvString(it->second.getSearchAlias(false).empty() ? "" : StringUtils::escapeString(it->second.getSearchAlias(false)));
+			CellValue alias = it->second.getSearchAlias(false);
+			if (alias.isNumeric()) {
+				body.appendCsvDouble(alias.getNumeric());
+			} else {
+				body.appendCsvString(alias.empty() ? "" : StringUtils::escapeString(alias));
+			}
 			body.appendCsvString(it->second.getPath());
 			body.appendEol();
 		}
