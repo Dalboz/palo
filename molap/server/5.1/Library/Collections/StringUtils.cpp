@@ -131,23 +131,82 @@ std::string UTF8Comparer::capitalize(const std::string &s)
 	return std::string(buf.get(), ret);
 }
 
-std::string UTF8Comparer::doubleToString(double d, int32_t padding, int32_t decimals)
+std::string UTF8Comparer::doubleToString(double d, int32_t padding, int32_t decimals, bool uselocale)
 {
 	UTF8ComparerInternal *u8 = check();
 	UErrorCode er = U_ZERO_ERROR;
-	u8->formatter->setMinimumFractionDigits(decimals);
-	u8->formatter->setMaximumFractionDigits(decimals);
-	u8->formatter->setFormatWidth(padding);
+	U_NAMESPACE_QUALIFIER DecimalFormat *f = uselocale ? u8->formatter : u8->cformatter;
 	UnicodeString result;
-	u8->formatter->format(d, result, er);
+	if (decimals == -1) {
+		UnicodeString result1, result2;
+		f->setMinimumFractionDigits(0);
+		f->setFormatWidth(padding);
+		f->setScientificNotation(false);
+		if (d && d < 1 && d > -1) {
+			f->setMaximumFractionDigits(340);
+			f->format(d, result1, er);
+			if (U_FAILURE(er)) {
+				std::stringstream str;
+				str << "ICU returned unexpected error: " << u_errorName(er);
+				throw ErrorException(ErrorException::ERROR_CONVERSION_FAILED, str.str());
+			}
+			f->setMaximumFractionDigits(15);
+			f->setScientificNotation(true);
+			f->setMinimumExponentDigits(3);
+			f->format(d, result2, er);
+			if (U_FAILURE(er)) {
+				std::stringstream str;
+				str << "ICU returned unexpected error: " << u_errorName(er);
+				throw ErrorException(ErrorException::ERROR_CONVERSION_FAILED, str.str());
+			}
+			result = result1.length() <= result2.length() ? result1 : result2.toLower();
+		} else {
+			f->setMaximumFractionDigits(15);
+			f->format(d, result, er);
+			if (U_FAILURE(er)) {
+				std::stringstream str;
+				str << "ICU returned unexpected error: " << u_errorName(er);
+				throw ErrorException(ErrorException::ERROR_CONVERSION_FAILED, str.str());
+			}
+		}
+	} else {
+		f->setScientificNotation(false);
+		f->setMinimumFractionDigits(decimals);
+		f->setMaximumFractionDigits(decimals);
+		f->setFormatWidth(padding);
+		f->format(d, result, er);
+		if (U_FAILURE(er)) {
+			std::stringstream str;
+			str << "ICU returned unexpected error: " << u_errorName(er);
+			throw ErrorException(ErrorException::ERROR_CONVERSION_FAILED, str.str());
+		}
+	}
+	string s;
+	result.toUTF8String(s);
+	return s;
+}
+
+double UTF8Comparer::stringToDouble(const string& str, bool uselocale)
+{
+	if (str.empty()) {
+		throw ParameterException(ErrorException::ERROR_CONVERSION_FAILED, "error converting a string to a number, string is empty", "str", str);
+	}
+	UTF8ComparerInternal *u8 = check();
+	UErrorCode er = U_ZERO_ERROR;
+	U_NAMESPACE_QUALIFIER DecimalFormat *f = uselocale ? u8->formatter : u8->cformatter;
+	U_NAMESPACE_QUALIFIER Formattable form;
+	U_NAMESPACE_QUALIFIER ParsePosition p;
+	f->parse(U_NAMESPACE_QUALIFIER UnicodeString::fromUTF8(str.c_str()), form, p);
+	if ((size_t)p.getIndex() != str.size()) {
+		throw ParameterException(ErrorException::ERROR_CONVERSION_FAILED, "error converting a string to a number, string has illegal characters", "str", str);
+	}
+	double d = form.getDouble(er);
 	if (U_FAILURE(er)) {
 		std::stringstream str;
 		str << "ICU returned unexpected error: " << u_errorName(er);
 		throw ErrorException(ErrorException::ERROR_CONVERSION_FAILED, str.str());
 	}
-	string s;
-	result.toUTF8String(s);
-	return s;
+	return d;
 }
 
 void UTF8Comparer::setDefault()
@@ -223,6 +282,14 @@ UTF8ComparerInternal::UTF8ComparerInternal() : col(0), cm(0), formatter(0)
 	}
 	formatter->setPadCharacter(" ");
 	formatter->setGroupingSize(0);
+	cformatter = dynamic_cast<U_NAMESPACE_QUALIFIER DecimalFormat *>(U_NAMESPACE_QUALIFIER NumberFormat::createInstance(U_NAMESPACE_QUALIFIER Locale::getRoot(), er));
+	if (U_FAILURE(er)) {
+		std::stringstream str;
+		str << "Initialization of ICU failed with error: " << u_errorName(er);
+		throw ErrorException(ErrorException::ERROR_CONVERSION_FAILED, str.str());
+	}
+	cformatter->setPadCharacter(" ");
+	cformatter->setGroupingSize(0);
 }
 
 UTF8ComparerInternal::~UTF8ComparerInternal()
@@ -235,6 +302,9 @@ UTF8ComparerInternal::~UTF8ComparerInternal()
 	}
 	if (formatter) {
 		delete formatter;
+	}
+	if (cformatter) {
+		delete cformatter;
 	}
 }
 
@@ -341,23 +411,6 @@ unsigned long StringUtils::stringToUnsignedInteger(const string& str)
 	}
 
 	return i;
-}
-
-double StringUtils::stringToDouble(const string& str)
-{
-	if (str.empty()) {
-		throw ParameterException(ErrorException::ERROR_CONVERSION_FAILED, "error converting a string to a number, string is empty", "str", str);
-	}
-
-	char *p;
-
-	double d = strtod(str.c_str(), &p);
-
-	if (*p != '\0') {
-		throw ParameterException(ErrorException::ERROR_CONVERSION_FAILED, "error converting a string to a number, string has illegal characters", "str", str);
-	}
-
-	return d;
 }
 
 string StringUtils::convertTimeToString(uint64_t tt) {

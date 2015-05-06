@@ -138,9 +138,9 @@ public:
 protected:
 	static Element::Type elementTypeByIdentifier(uint32_t);
 
-	static PCubeArea area(PDatabase database, PCube cube, vector<IdentifiersType>* paths, const vector<CPDimension> * dimensions, uint32_t& numResult, bool useBaseOnly);
+	static PCubeArea area(PDatabase database, PCube cube, vector<IdentifiersType>* paths, const vector<CPDimension> * dimensions, double& numResult, bool useBaseOnly);
 
-	static PCubeArea area(PDatabase database, PCube cube, vector<vector<string> >* paths, const vector<CPDimension> * dimensions, uint32_t& numResult, bool useBaseOnly);
+	static PCubeArea area(PDatabase database, PCube cube, vector<vector<string> >* paths, const vector<CPDimension> * dimensions, double& numResult, bool useBaseOnly);
 
 	static string areaToString(vector<IdentifiersType>* paths);
 	static string areaToString(vector<vector<string> >* paths);
@@ -194,6 +194,10 @@ protected:
 
 	void setSecondToken(CPCube cube) {
 		response->setSecondToken(PaloRequestHandler::X_PALO_CUBE_CLIENT_CACHE, cube->getClientCacheToken());
+	}
+
+	void setSecondToken(CPServer server) {
+		response->setSecondToken(PaloRequestHandler::X_PALO_CUBE_CLIENT_CACHE, server->getToken());
 	}
 
 protected:
@@ -314,7 +318,7 @@ protected:
 	void generateDatabaseResponse(CPDatabase database);
 	void generateDatabasesResponse(CPServer server, vector<CPDatabase>* databases);
 	void generateCubeResponse(CPCube cube);
-	void generateCubesResponse(CPDatabase database, vector<CPCube>* cubes, bool showNormal, bool showSystem, bool showAttribute, bool showInfo, bool showGputype);
+	void generateCubesResponse(CPDatabase database, vector<CPCube>* cubes, bool showNormal, bool showSystem, bool showAttribute, bool showInfo, bool showGputype, bool secondToken);
 	void generateDimensionResponse(CPDimension dimension);
 	void generateDimensionsResponse(CPDatabase database, vector<CPDimension>* dimensions, bool showNormal, bool showSystem, bool showAttribute, bool showInfo);
 	void generateElementResponse(CPDimension dimension, Element* element, bool showPermission);

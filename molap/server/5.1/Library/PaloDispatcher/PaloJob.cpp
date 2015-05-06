@@ -300,12 +300,15 @@ void PaloJob::generateCubeResponse(CPCube cube)
 	appendCube(&body, cube);
 }
 
-void PaloJob::generateCubesResponse(CPDatabase database, vector<CPCube>* cubes, bool showNormal, bool showSystem, bool showAttribute, bool showInfo, bool showGputype)
+void PaloJob::generateCubesResponse(CPDatabase database, vector<CPCube>* cubes, bool showNormal, bool showSystem, bool showAttribute, bool showInfo, bool showGputype, bool secondToken)
 {
 	response = new HttpResponse(HttpResponse::OK);
 	StringBuffer& body = response->getBody();
 
 	setToken(database);
+	if (secondToken) {
+		setSecondToken(server);
+	}
 
 	for (vector<CPCube>::iterator i = cubes->begin(); i != cubes->end(); ++i) {
 		CPCube cube = (*i);
@@ -365,6 +368,7 @@ void PaloJob::generateDimensionsResponse(CPDatabase database, vector<CPDimension
 	StringBuffer& body = response->getBody();
 
 	setToken(database);
+	setSecondToken(server);
 
 	RightsType rt = RIGHT_NONE;
 	if (jobRequest->showPermission && user) {
@@ -423,6 +427,7 @@ void PaloJob::generateElementsResponse(CPDimension dimension, ElementsType* elem
 	StringBuffer& body = response->getBody();
 
 	setToken(dimension);
+	setSecondToken(server);
 
 	if (!responseCount) {
 		// return just number of elements in selection
@@ -1294,7 +1299,7 @@ Element::Type PaloJob::elementTypeByIdentifier(uint32_t type)
 	return elementType;
 }
 
-PCubeArea PaloJob::area(PDatabase database, PCube cube, vector<IdentifiersType>* paths, const vector<CPDimension> * dimensions, uint32_t& numResult, bool useBaseOnly)
+PCubeArea PaloJob::area(PDatabase database, PCube cube, vector<IdentifiersType>* paths, const vector<CPDimension> * dimensions, double& numResult, bool useBaseOnly)
 {
 	if (dimensions->size() != paths->size()) {
 		throw ParameterException(ErrorException::ERROR_INVALID_COORDINATES, "wrong number of area elements", PaloRequestHandler::ID_AREA, "");
@@ -1335,13 +1340,13 @@ PCubeArea PaloJob::area(PDatabase database, PCube cube, vector<IdentifiersType>*
 		}
 		area->insert(i, s);
 
-		numResult *= (uint32_t)area->elemCount(i);
+		numResult *= area->elemCount(i);
 	}
 
 	return area;
 }
 
-PCubeArea PaloJob::area(PDatabase database, PCube cube, vector<vector<string> >* paths, const vector<CPDimension> * dimensions, uint32_t& numResult, bool useBaseOnly)
+PCubeArea PaloJob::area(PDatabase database, PCube cube, vector<vector<string> >* paths, const vector<CPDimension> * dimensions, double& numResult, bool useBaseOnly)
 {
 	if (dimensions->size() != paths->size()) {
 		throw ParameterException(ErrorException::ERROR_INVALID_COORDINATES, "wrong number of area elements", PaloRequestHandler::ID_AREA, "");
@@ -1373,7 +1378,7 @@ PCubeArea PaloJob::area(PDatabase database, PCube cube, vector<vector<string> >*
 		}
 		area->insert(i, s);
 
-		numResult *= (uint32_t)area->elemCount(i);
+		numResult *= area->elemCount(i);
 	}
 
 	return area;

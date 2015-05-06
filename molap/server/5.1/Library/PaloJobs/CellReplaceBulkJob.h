@@ -97,7 +97,7 @@ public:
 			findLockedPaths(0);
 			assertParameter(PaloRequestHandler::VALUES, jobRequest->values);
 
-			cube->disableTokenUpdate();
+			cube->disableTokenUpdate(database->getType());
 
 			// get splash mode
 			SplashMode mode = splashMode(jobRequest->splash);
@@ -182,7 +182,7 @@ public:
 					if (cellType == CubeArea::CONSOLIDATED) {
 						hasCons = true;
 					}
-					double value = StringUtils::stringToDouble(jobRequest->values->at(i));
+					double value = UTF8Comparer::stringToDouble(jobRequest->values->at(i), false);
 					cvc->addPathAndValue(cellPaths->at(i), value == 0 ? CellValue::NullNumeric : CellValue(value), !eventProcessor, cellType);
 				}
 			}

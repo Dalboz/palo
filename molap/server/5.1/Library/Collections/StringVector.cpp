@@ -107,17 +107,23 @@ string StringVector::getString(const_iterator it) const
 
 void StringVector::erase(StringId id)
 {
-	// nothing to do
+	// nothing to do, defragment will fix it
 	erased++;
 }
 
 
 void StringVector::erase(const iterator &it)
 {
-	// nothing to do
+	// nothing to do, defragment will fix it
 	erased++;
 }
 
+
+bool StringVector::defragmentNeeded() const
+{
+	// filled is not total count, total count is filled-erased
+	return (filled > 1000 && erased > filled*0.1);
+}
 
 ostream& operator<<(ostream& output, const StringVector::StringId &id)
 {

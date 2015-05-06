@@ -200,11 +200,12 @@ public:
 	inline bool operator()(const SortElem &e1, const SortElem &e2) const
 	{
 		if ((*m_type)(e1.el->getChildrenCount()) && (*m_type)(e2.el->getChildrenCount())) {
-			const CellValue &v = e1.getSearchAlias();
-			if (v.isString()) {
-				return (*m_neg)(u8(v, e2.getSearchAlias()));
+			const CellValue &v1 = e1.getSearchAlias();
+			const CellValue &v2 = e2.getSearchAlias();
+			if (v1.isString() || v2.isString()) {
+				return (*m_neg)(u8(v1, v2));
 			} else {
-				return (*m_neg)(v < e2.getSearchAlias());
+				return (*m_neg)(v1.getNumeric() < v2.getNumeric());
 			}
 		} else {
 			return e1.el->getPosition() < e2.el->getPosition();
@@ -260,11 +261,12 @@ public:
 	inline bool operator()(const SortElem &e1, const SortElem &e2) const
 	{
 		if ((*m_type)(e1.el->getChildrenCount()) && (*m_type)(e2.el->getChildrenCount())) {
-			const CellValue &v = e1.getSortingAlias();
-			if (v.isString()) {
-				return (*m_neg)(u8(v, e2.getSortingAlias()));
+			const CellValue &v1 = e1.getSortingAlias();
+			const CellValue &v2 = e2.getSortingAlias();
+			if (v1.isString() || v2.isString()) {
+				return (*m_neg)(u8(v1, v2));
 			} else {
-				return (*m_neg)(v < e2.getSortingAlias());
+				return (*m_neg)(v1.getNumeric() < v2.getNumeric());
 			}
 		} else {
 			return e1.el->getPosition() < e2.el->getPosition();

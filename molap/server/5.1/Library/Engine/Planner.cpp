@@ -40,6 +40,11 @@
 
 namespace palo {
 
+bool Planner::Params::operator==(const Planner::Params &o) const
+{
+	return *area == *o.area && cellType == o.cellType && rulesType == o.rulesType && skipEmpty == o.skipEmpty && continueRule == o.continueRule;
+}
+
 Planner::Planner(CPCube cube, PCubeArea area, Planner *parentPlanner) : cube(cube), area(area)
 {
 	this->parentPlanner = parentPlanner ? parentPlanner : this;
@@ -412,6 +417,15 @@ PPlanNode Planner::checkInfiniteRecursion()
 
 PPlanNode Planner::createPlan(CubeArea::CellType cellType, RulesType useRulesType, bool skipEmpty, uint64_t blockSize)
 {
+	Params params(area, cellType, useRulesType, skipEmpty, continueRule);
+	Planner *root = getRootPlanner();
+	if (root->cache.size() && area->getSize() == 1) {
+		vector<Params>::iterator found = find(root->cache.begin(), root->cache.end(), params);
+		if (found != root->cache.end()) {
+			return found->plan;
+		}
+	}
+
 	this->useRulesType = useRulesType;
 
 	RulesType calcRules = RulesType(useRulesType & ALL_RULES);
@@ -631,17 +645,22 @@ PPlanNode Planner::createPlan(CubeArea::CellType cellType, RulesType useRulesTyp
 //	if (consolidatedAreas.size()) Logger::trace << "C:" << consolidatedAreas << endl;
 //	if (numericAreas.size()) Logger::trace << "N:" << numericAreas << endl;
 
+	PPlanNode res;
 	if (planNodes.size() == 1) {
 		// just one processor
-		return planNodes[0];
+		res = planNodes[0];
 	} else if (planNodes.size() > 1) {
 		// more than one processor - make sequence or combination
 		PPlanNode unionNode(new UnionPlanNode(area, planNodes, NO_IDENTIFIER));
 		saveNode(unionNode);
-		return unionNode;
-	} else {
-		return PPlanNode();
+		res = unionNode;
 	}
+
+	if (res && area->getSize() == 1) {
+		params.plan = res;
+		root->cache.push_back(params);
+	}
+	return res;
 }
 
 }

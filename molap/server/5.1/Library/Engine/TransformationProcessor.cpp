@@ -206,22 +206,31 @@ RearrangeProcessor::RearrangeProcessor(PProcessorBase inputSP, const vector<uint
 		}
 	}
 	double iterationsCount = 1;
-	for (vector<uint32_t>::const_iterator stit = source2Target.begin(); stit != source2Target.end(); ++stit) {
-		if (*stit) {
-			for (vector<uint32_t>::const_iterator stit2 = source2Target.begin(); stit2 != stit; ++stit2) {
-				if (*stit2 && *stit < *stit2) {
-					int sourceOrdinal = int(stit - source2Target.begin());
-					int targetOrdinal = *stit - 1;
-					MisplacedDimension mdr(targetOrdinal, sourceOrdinal, *sourceArea->getDim(sourceOrdinal));
-					misplacedDimensions[targetOrdinal] = mdr;
-					iterationsCount *= sourceArea->getDim(sourceOrdinal)->size();
+	for (vector<uint32_t>::const_reverse_iterator tsit = target2Source.rbegin(); misplacedDimensions.empty() && tsit != target2Source.rend(); ++tsit) {
+		if (*tsit) {
+			for (vector<uint32_t>::const_reverse_iterator tsit2 = tsit+1; tsit2 != target2Source.rend(); ++tsit2) {
+				if (*tsit2 && *tsit2 > *tsit) {
+					// found last dimension crossing - store all subset to
+					for (vector<uint32_t>::const_reverse_iterator tsit3 = tsit2; tsit3 != target2Source.rend(); ++tsit3) {
+						if (!*tsit3) {
+							continue; // dimension not mapped
+						}
+						int sourceOrdinal = *tsit3-1;
+						int targetOrdinal = int(target2Source.rend() - tsit3 - 1);
+						CPSet sourceSet = sourceArea->getDim(sourceOrdinal);
+						if (sourceSet->size()) {
+							MisplacedDimension mdr(targetOrdinal, sourceOrdinal, *sourceSet);
+							misplacedDimensions[targetOrdinal] = mdr;
+							iterationsCount *= sourceArea->getDim(sourceOrdinal)->size();
+						}
+					}
 					break;
 				}
 			}
 		}
 	}
-	if (iterationsCount && Logger::isTrace()) {
-		Logger::trace << "RearrangeProcessor created with " << iterationsCount << " iterations in " << misplacedDimensions.size() << " dimensions" << endl;
+	if (iterationsCount && Logger::isDebug() && misplacedDimensions.size()) {
+		Logger::debug << "RearrangeProcessor created with " << iterationsCount << " iterations in " << misplacedDimensions.size() << " dimensions" << endl;
 	}
 }
 
@@ -707,8 +716,8 @@ bool TransformationProcessor::move(const IdentifiersType &key, bool *found)
 //	if (tproc == this) {
 //		int breakhere = 1;
 //	}
-	// 12,8,0,0,0,0,915,91
-//	if ((key.size() == 8 && key[0] == 12 && key[1] == 8 && key[2] == 0 && key[3] == 0 && key[4] == 0 && key[5] == 0 && key[6] == 915 && key[7] == 91 /*&& key[8] == 0*/) /*&&
+	//1, 2, 5, 51, 0
+//	if ((key.size() == 5 && key[0] == 1 && key[1] == 2 && key[2] == 5 && key[3] == 51 && key[4] == 0 /*&& key[5] == 0 && key[6] == 915 && key[7] == 91 && key[8] == 0*/) /*&&
 //		(outKey.size() == 9 && outKey[0] == 0 && outKey[1] == 8 && outKey[2] == 317 && outKey[3] == 197 && outKey[4] == 30 && outKey[5] == 4 && outKey[6] == 0 && outKey[7] == 0 && outKey[8] == 0)*/) {
 //		int breakhere = 1;
 //	}
@@ -774,8 +783,11 @@ bool TransformationProcessor::move(const IdentifiersType &key, bool *found)
 		}
 		for (size_t verifyDim = 0; verifyDim < key.size(); verifyDim++) {
 			if (expansions[verifyDim].set) {
-				for (size_t mapDim = 0; mapDim < verifyDim; mapDim++) {
-					expansions[verifyDim].resetKey[mapDim] = moveToInKey[mapDim];
+				for (size_t mapDim = 0; mapDim < key.size(); mapDim++) {
+					if (mappedDimensions[mapDim]) {
+						IdentifierType resetId = mapDim < verifyDim ? moveToInKey[mapDim] : sourceStartKey[mapDim];
+						expansions[verifyDim].resetKey[mapDim] = resetId;
+					}
 				}
 			}
 		}

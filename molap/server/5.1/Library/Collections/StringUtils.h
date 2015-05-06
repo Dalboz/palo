@@ -50,6 +50,7 @@ struct UTF8ComparerInternal {
 	U_NAMESPACE_QUALIFIER Collator *col;
 	UCaseMap *cm;
 	U_NAMESPACE_QUALIFIER DecimalFormat *formatter;
+	U_NAMESPACE_QUALIFIER DecimalFormat *cformatter;
 	UTF8ComparerInternal();
 	~UTF8ComparerInternal();
 	static U_NAMESPACE_QUALIFIER Locale time;
@@ -70,7 +71,8 @@ public:
 	static std::string toUpper(const std::string &s);
 	static std::string toLower(const std::string &s);
 	static std::string capitalize(const std::string &s);
-	static std::string doubleToString(double d, int32_t padding, int32_t decimals);
+	static std::string doubleToString(double d, int32_t padding, int32_t decimals, bool uselocale);
+	static double stringToDouble(const string& str, bool uselocale);
 	static void setDefault();
 	static size_t len(std::string &s);
 	static std::string left(std::string &s, int32_t l);
@@ -283,12 +285,6 @@ public:
 	////////////////////////////////////////////////////////////////////////////////
 
 	static unsigned long stringToUnsignedInteger(const string& str);
-
-	////////////////////////////////////////////////////////////////////////////////
-	/// @brief converts string to double
-	////////////////////////////////////////////////////////////////////////////////
-
-	static double stringToDouble(const string& str);
 
 	////////////////////////////////////////////////////////////////////////////////
 	/// @brief splits string along seperator

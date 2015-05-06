@@ -452,6 +452,11 @@ int do_extract_currentfile(unzFile uf, bool popt_extract_without_path, bool popt
 
 		if (!popt_extract_without_path) {
 			write_filename = str_filename_inzip;
+#ifdef WIN32
+			std::replace(write_filename.begin(), write_filename.end(), '/', '\\');
+#else
+			std::replace(write_filename.begin(), write_filename.end(), '\\', '/');
+#endif			
 		} else {
 			write_filename = filename_withoutpath;
 		}

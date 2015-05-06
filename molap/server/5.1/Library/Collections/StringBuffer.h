@@ -33,6 +33,7 @@
 #include <stdio.h>
 
 #include "palo.h"
+#include "Collections/StringUtils.h"
 
 namespace palo {
 
@@ -665,16 +666,7 @@ struct StringBuffer {
 
 	void appendDecimal(double attr) 
 	{
-		char b[1024];
-		size_t written = snprintf(b, sizeof(b) - 1, "%.15g", attr);
-
-		// What should be done in case of an overflow? Should not happen
-		if (sizeof(b) <= written) {
-			written = sizeof(b) - 1;
-			b[written] = '\0';
-		}
-
-		appendText(b, written);
+		appendText(UTF8Comparer::doubleToString(attr, 0, -1, false));
 	}
 
 	////////////////////////////////////////////////////////////////////////////////

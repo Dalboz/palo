@@ -100,6 +100,7 @@ public:
 						acube = adb->lookupCubeByName(cubeName.stringValue, false);
 					}
 					if (acube && acube->getDimensions()->size() == params->size() - 2) {
+						IdentifiersType varDims(acube->getDimensions()->size(), NO_IDENTIFIER);
 						vector<uint32_t> dimensionMap;
 //						bool sameCube = adb->getIdentifier() == area->getDatabase()->getIdentifier() && acube->getId() == area->getCube()->getId();
 						int32_t i;
@@ -107,6 +108,22 @@ public:
 							Node *param = params->at(i);
 							if (param->getNodeType() == NODE_VARIABLE_NODE) {
 								VariableNode *varNode = dynamic_cast<VariableNode*>(param);
+								varDims[i-2] = varNode->getDimensionId();
+								size_t j;
+								for (j = i-1; j < varDims.size(); j++) {
+									if (varDims[j] == varNode->getDimensionId()) {
+										// variable dimension used twice
+										// plan not supported
+										if (Logger::isTrace()) {
+											Logger::trace << "Variable used multiple times in PALO.DATA/MARKER. DDE Disabled for this rule." << endl;
+										}
+										break;
+									}
+								}
+								if (j < varDims.size()) {
+									break;
+								}
+
 								int dimensionOrdinal = varNode->getDimensionOrdinal();
 								if (dimensionOrdinal >= 0 && acube->getDimensions()->at(i-2) == varNode->getDimensionId()) {
 									// the same dimension

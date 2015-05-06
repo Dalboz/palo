@@ -99,7 +99,7 @@ public:
 			}
 
 			PArea area;
-			uint32_t numResult;
+			double numResult;
 
 			if (jobRequest->area) {
 				area = PaloJob::area(database, cube, jobRequest->area, &dims, numResult, false);

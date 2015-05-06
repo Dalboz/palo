@@ -173,9 +173,12 @@ SortingFilter::SortingFilter(SubSet& s, SortingFilterSettings &settings) :
 void SortingFilter::applySettings()
 {
 	if (!m_settings.attribute.empty()) {
-		if (!queryFlag(USE_ATTRIBUTE))
+		if (!queryFlag(USE_ATTRIBUTE)) {
 			setFlag(USE_ATTRIBUTE);
-		m_sort_attribute = m_subset_ref.validateAttribute(m_settings.attribute);
+		}
+		Element::Type t;
+		m_sort_attribute = m_subset_ref.validateAttribute(m_settings.attribute, t);
+		m_subset_ref.setSortingAliasType(t);
 	}
 	if (m_settings.level >= 0) {
 		m_level = m_settings.level;
@@ -400,14 +403,15 @@ void SortingFilter::computeAliases()
 	area->insert(0, s);
 	area->insert(1, m_subset_ref.getSet(false));
 
-	CellValue def;
-	PCellStream cs = attrcube->calculateArea(area, CubeArea::ALL, ALL_RULES, true, UNLIMITED_SORTED_PLAN);
-	if (cs) {
-		while (cs->next()) {
-			const CellValue &val = cs->getValue();
-			const IdentifiersType &key = cs->getKey();
-			if (!(val.isError())) {
-				m_subset_ref.setSortingAlias(key[1], val);
+	if (area->getSize()) {
+		PCellStream cs = attrcube->calculateArea(area, CubeArea::ALL, ALL_RULES, true, UNLIMITED_SORTED_PLAN);
+		if (cs) {
+			while (cs->next()) {
+				const CellValue &val = cs->getValue();
+				const IdentifiersType &key = cs->getKey();
+				if (!(val.isError())) {
+					m_subset_ref.setSortingAlias(key[1], val);
+				}
 			}
 		}
 	}

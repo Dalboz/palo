@@ -201,64 +201,69 @@ void AggregationProcessorMT::aggregate()
 
 	initIntern();
 
-	const vector<PPlanNode> &sources = planNode->getChildren();
-	for (vector<PPlanNode>::const_iterator source = sources.begin(); source != sources.end(); ++source) {
-		PCellStream sourceDataSP = createProcessor(*source, false);
+	try {
+		const vector<PPlanNode> &sources = planNode->getChildren();
+		for (vector<PPlanNode>::const_iterator source = sources.begin(); source != sources.end(); ++source) {
+			PCellStream sourceDataSP = createProcessor(*source, false);
 
-		reader = dynamic_cast<StorageCpu::Processor *>(sourceDataSP.get());
-		if (reader && (*source)->getType() == SOURCE) {
-			minJump = (size_t)reader->pageList->maxPageSize() * 20;
-			reader->mtCallback = this;
-			if (!storage) {
-				createStorage(resultSize);
-			}
-			if (hashStorage) {
-				reader->aggregate(hashStorage, &parentMaps[0]);
-			} else {
-				while (reader->next()) {
-					if (!storage) {
-						createStorage(resultSize);
-					}
-					aggregateCell(reader->getKey(), reader->getValue().getNumeric());
-				}
-			}
-		} else {
-			CellValueStream *sourceData = sourceDataSP.get();
-			size_t counter = 0;
-			while (sourceData->next()) {
-				if (!(++counter % 10000)) {
-					con->check();
-				}
+			reader = dynamic_cast<StorageCpu::Processor *>(sourceDataSP.get());
+			if (reader && (*source)->getType() == SOURCE) {
+				minJump = (size_t)reader->pageList->maxPageSize() * 20;
+				reader->mtCallback = this;
 				if (!storage) {
 					createStorage(resultSize);
 				}
-				aggregateCell(sourceData->getKey(), sourceData->getValue().getNumeric());
+				if (hashStorage) {
+					reader->aggregate(hashStorage, &parentMaps[0]);
+				} else {
+					while (reader->next()) {
+						if (!storage) {
+							createStorage(resultSize);
+						}
+						aggregateCell(reader->getKey(), reader->getValue().getNumeric());
+					}
+				}
+			} else {
+				CellValueStream *sourceData = sourceDataSP.get();
+				size_t counter = 0;
+				while (sourceData->next()) {
+					if (!(++counter % 10000)) {
+						con->check();
+					}
+					if (!storage) {
+						createStorage(resultSize);
+					}
+					aggregateCell(sourceData->getKey(), sourceData->getValue().getNumeric());
+				}
 			}
 		}
-	}
 
-	tp->join(tg);
-	if (threadStorage) {
-		if (storage) {
-			storageReader = threadStorage->getValues();
-			while (storageReader->next()) {
-				storage->add(storageReader->getKey(), storageReader->getDouble());
+		tp->join(tg);
+		if (threadStorage) {
+			if (storage) {
+				storageReader = threadStorage->getValues();
+				while (storageReader->next()) {
+					storage->add(storageReader->getKey(), storageReader->getDouble());
+				}
+			} else {
+				storage = threadStorage;
 			}
-		} else {
-			storage = threadStorage;
 		}
-	}
-	if (!storage) {
-		storage = CreateDoubleCellMap(aggregationPlan->getArea()->dimCount());
-	}
-	// log entry
-	if (resultSize > 1000 && (Logger::isDebug() || Logger::isTrace())) {
-		Logger::debug << "Aggregated area of " << resultSize << " cells. " << storage->size() << " aggregations exists." << endl;
-	} else if (Logger::isDebug() || Logger::isTrace()) {
-		Logger::trace << "Aggregated area of " << resultSize << " cells. " << endl;
-	}
+		if (!storage) {
+			storage = CreateDoubleCellMap(aggregationPlan->getArea()->dimCount());
+		}
+		// log entry
+		if (resultSize > 1000 && (Logger::isDebug() || Logger::isTrace())) {
+			Logger::debug << "Aggregated area of " << resultSize << " cells. " << storage->size() << " aggregations exists." << endl;
+		} else if (Logger::isDebug() || Logger::isTrace()) {
+			Logger::trace << "Aggregated area of " << resultSize << " cells. " << endl;
+		}
 
-	storageReader = storage->getValues();
+		storageReader = storage->getValues();
+	} catch (ErrorException &) {
+		tp->join(tg);
+		throw;
+	}
 }
 
 PCommitable EngineCpuMT::copy() const

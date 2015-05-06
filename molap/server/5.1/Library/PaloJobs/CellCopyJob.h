@@ -93,7 +93,7 @@ public:
 			}
 			findPathTo();
 
-			cube->disableTokenUpdate();
+			cube->disableTokenUpdate(database->getType());
 
 			User::RightSetting rs;
 			if (User::checkUser(user)) {
@@ -113,7 +113,7 @@ public:
 			} else {
 				cube->checkAreaAccessRight(database, user, cellPath, rs, false, RIGHT_READ, 0);
 				if (jobRequest->value) {
-					dValue = StringUtils::stringToDouble(*(jobRequest->value));
+					dValue = UTF8Comparer::stringToDouble(*(jobRequest->value), false);
 				} else {
 					ptrValue = NULL;
 				}

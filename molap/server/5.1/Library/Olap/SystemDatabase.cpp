@@ -845,7 +845,7 @@ bool SystemDatabase::mergespecial(const CPCommitable &o, const PCommitable &p, b
 	}
 	if (users->isCheckedOut()) {
 		ret = users->merge(o != 0 && !final ? db->users : PUserList(), shared_from_this());
-	} else if (o != 0) {
+	} else if (o != 0 && !final) {
 		users = db->users;
 	}
 
@@ -857,58 +857,8 @@ bool SystemDatabase::mergespecial(const CPCommitable &o, const PCommitable &p, b
 		}
 
 		if (ret) {
-			if (userDimensionId == NO_IDENTIFIER) {
-				userDimension = lookupDimensionByName(NAME_USER_DIMENSION, false);
-				userDimensionId = userDimension->getId();
-				groupDimension = lookupDimensionByName(NAME_GROUP_DIMENSION, false);
-				groupDimensionId = groupDimension->getId();
-				userPropertiesDimension = lookupDimensionByName(NAME_USER_PROPERTIES_DIMENSION, false);
-				userPropertiesDimensionId = userPropertiesDimension->getId();
-				rolePropertiesDimension = lookupDimensionByName(NAME_ROLE_PROPERTIES_DIMENSION, false);
-				rolePropertiesDimensionId = rolePropertiesDimension->getId();
-				groupPropertiesDimension = lookupDimensionByName(NAME_GROUP_PROPERTIES_DIMENSION, false);
-				groupPropertiesDimensionId = groupPropertiesDimension->getId();
-				roleDimension = lookupDimensionByName(NAME_ROLE_DIMENSION, false);
-				roleDimensionId = roleDimension->getId();
-				rightObjectDimension = lookupDimensionByName(NAME_RIGHT_OBJECT_DIMENSION, false);
-				rightObjectDimensionId = rightObjectDimension->getId();
-				databaseDimension = lookupDimensionByName(NAME_DATABASE_DIMENSION, false);
-				databaseDimensionId = databaseDimension->getId();
-				userUserPropertiesCube = lookupCubeByName(NAME_USER_USER_PROPERTIERS_CUBE, false);
-				userUserPropertiesCubeId = userUserPropertiesCube->getId();
-				userGroupCube = lookupCubeByName(NAME_USER_GROUP_CUBE, false);
-				userGroupCubeId = userGroupCube->getId();
-				roleRightObjectCube = lookupCubeByName(NAME_ROLE_RIGHT_OBJECT_CUBE, false);
-				roleRightObjectCubeId = roleRightObjectCube->getId();
-				groupRoleCube = lookupCubeByName(NAME_GROUP_ROLE, false);
-				groupRoleCubeId = groupRoleCube->getId();
-				roleRolePropertiesCube = lookupCubeByName(NAME_ROLE_ROLE_PROPERTIES_CUBE, false);
-				roleRolePropertiesCubeId = roleRolePropertiesCube->getId();
-				groupGroupPropertiesCube = lookupCubeByName(NAME_GROUP_GROUP_PROPERTIES_CUBE, false);
-				groupGroupPropertiesCubeId = groupGroupPropertiesCube->getId();
-				groupDatabaseCube = lookupCubeByName(NAME_GROUP_DATABASE_CUBE, false);
-				groupDatabaseCubeId = groupDatabaseCube->getId();
-			} else {
-				userDimension = lookupDimension(userDimensionId, false);
-				groupDimension = lookupDimension(groupDimensionId, false);
-				userPropertiesDimension = lookupDimension(userPropertiesDimensionId, false);
-				rolePropertiesDimension = lookupDimension(rolePropertiesDimensionId, false);
-				groupPropertiesDimension = lookupDimension(groupPropertiesDimensionId, false);
-				roleDimension = lookupDimension(roleDimensionId, false);
-				rightObjectDimension = lookupDimension(rightObjectDimensionId, false);
-				databaseDimension = lookupDimension(databaseDimensionId, false);
-				userUserPropertiesCube = lookupCube(userUserPropertiesCubeId, false);
-				userGroupCube = lookupCube(userGroupCubeId, false);
-				roleRightObjectCube = lookupCube(roleRightObjectCubeId, false);
-				groupRoleCube = lookupCube(groupRoleCubeId, false);
-				roleRolePropertiesCube = lookupCube(roleRolePropertiesCubeId, false);
-				groupGroupPropertiesCube = lookupCube(groupGroupPropertiesCubeId, false);
-				groupDatabaseCube = lookupCube(groupDatabaseCubeId, false);
-			}
-			if (userPropertiesDimension) {
-				passwordElement = userPropertiesDimension->lookupElementByName(PASSWORD, false)->getIdentifier();
-			}
 			checkOut();
+			refreshDimsAndCubes();
 		}
 		if (ret && Context::getContext()->doTokenUpdate()) {
 			User::updateGlobalDatabaseToken(COMMITABLE_CAST(Server, p), COMMITABLE_CAST(Database, shared_from_this()));
@@ -1108,6 +1058,62 @@ void SystemDatabase::setDbRight(PServer server, PUser user, const string &dbName
 	}
 	if (status == RESULT_OK) {
 		groupDatabaseCube->commitChanges(true, PUser(), changedCubes, false);
+	}
+}
+
+void SystemDatabase::refreshDimsAndCubes()
+{
+	checkCheckedOut();
+	if (userDimensionId == NO_IDENTIFIER) {
+		userDimension = lookupDimensionByName(NAME_USER_DIMENSION, false);
+		userDimensionId = userDimension->getId();
+		groupDimension = lookupDimensionByName(NAME_GROUP_DIMENSION, false);
+		groupDimensionId = groupDimension->getId();
+		userPropertiesDimension = lookupDimensionByName(NAME_USER_PROPERTIES_DIMENSION, false);
+		userPropertiesDimensionId = userPropertiesDimension->getId();
+		rolePropertiesDimension = lookupDimensionByName(NAME_ROLE_PROPERTIES_DIMENSION, false);
+		rolePropertiesDimensionId = rolePropertiesDimension->getId();
+		groupPropertiesDimension = lookupDimensionByName(NAME_GROUP_PROPERTIES_DIMENSION, false);
+		groupPropertiesDimensionId = groupPropertiesDimension->getId();
+		roleDimension = lookupDimensionByName(NAME_ROLE_DIMENSION, false);
+		roleDimensionId = roleDimension->getId();
+		rightObjectDimension = lookupDimensionByName(NAME_RIGHT_OBJECT_DIMENSION, false);
+		rightObjectDimensionId = rightObjectDimension->getId();
+		databaseDimension = lookupDimensionByName(NAME_DATABASE_DIMENSION, false);
+		databaseDimensionId = databaseDimension->getId();
+		userUserPropertiesCube = lookupCubeByName(NAME_USER_USER_PROPERTIERS_CUBE, false);
+		userUserPropertiesCubeId = userUserPropertiesCube->getId();
+		userGroupCube = lookupCubeByName(NAME_USER_GROUP_CUBE, false);
+		userGroupCubeId = userGroupCube->getId();
+		roleRightObjectCube = lookupCubeByName(NAME_ROLE_RIGHT_OBJECT_CUBE, false);
+		roleRightObjectCubeId = roleRightObjectCube->getId();
+		groupRoleCube = lookupCubeByName(NAME_GROUP_ROLE, false);
+		groupRoleCubeId = groupRoleCube->getId();
+		roleRolePropertiesCube = lookupCubeByName(NAME_ROLE_ROLE_PROPERTIES_CUBE, false);
+		roleRolePropertiesCubeId = roleRolePropertiesCube->getId();
+		groupGroupPropertiesCube = lookupCubeByName(NAME_GROUP_GROUP_PROPERTIES_CUBE, false);
+		groupGroupPropertiesCubeId = groupGroupPropertiesCube->getId();
+		groupDatabaseCube = lookupCubeByName(NAME_GROUP_DATABASE_CUBE, false);
+		groupDatabaseCubeId = groupDatabaseCube->getId();
+	} else {
+		userDimension = lookupDimension(userDimensionId, false);
+		groupDimension = lookupDimension(groupDimensionId, false);
+		userPropertiesDimension = lookupDimension(userPropertiesDimensionId, false);
+		rolePropertiesDimension = lookupDimension(rolePropertiesDimensionId, false);
+		groupPropertiesDimension = lookupDimension(groupPropertiesDimensionId, false);
+		roleDimension = lookupDimension(roleDimensionId, false);
+		rightObjectDimension = lookupDimension(rightObjectDimensionId, false);
+		databaseDimension = lookupDimension(databaseDimensionId, false);
+		userUserPropertiesCube = lookupCube(userUserPropertiesCubeId, false);
+		userGroupCube = lookupCube(userGroupCubeId, false);
+		roleRightObjectCube = lookupCube(roleRightObjectCubeId, false);
+		groupRoleCube = lookupCube(groupRoleCubeId, false);
+		roleRolePropertiesCube = lookupCube(roleRolePropertiesCubeId, false);
+		groupGroupPropertiesCube = lookupCube(groupGroupPropertiesCubeId, false);
+		groupDatabaseCube = lookupCube(groupDatabaseCubeId, false);
+	}
+	if (userPropertiesDimension) {
+		passwordElement = userPropertiesDimension->lookupElementByName(PASSWORD, false)->getIdentifier();
 	}
 }
 

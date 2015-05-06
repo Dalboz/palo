@@ -66,7 +66,7 @@ void ArithmeticProcessor::reset()
 	for (size_t i = 0; i < operandsCount; i++) {
 		hasNext [i] = true;
 		activeOperands[i] = 0;
-		if (streams[i]) {
+		if (streams.size() && streams[i]) {
 			streams[i]->reset();
 		}
 	}

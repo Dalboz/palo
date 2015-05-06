@@ -49,6 +49,7 @@ struct ElementStringIdCmp {
 	void setStringVector(CPStringVector v) {
 		strVector = v;
 	}
+
 	CPStringVector getStringVector() const {
 		return strVector;
 	}
@@ -65,23 +66,33 @@ public:
 	}
 
 	const_iterator find(const string &str) const;
+
 	virtual void print() const;
+
 	void setStringVector(PStringVector strVector) {
 		key_compare.setStringVector(strVector);
 	}
+
 	StringVector & getStringVector() {
 		return *strVector;
 	}
+
 	StringVector::StringId pushToVector(const string &name) {
 		return strVector->push(name);
 	}
+
 	void clear() {
 		strVector->clear();
 		SlimMap<StringVector::StringId, IdentifierType, ElementStringIdCmp>::clear();
 	}
+
 	void erase(StringVector::StringId id) {
 		strVector->erase(id);
 		SlimMap<StringVector::StringId, IdentifierType, ElementStringIdCmp>::erase(id);
+	}
+
+	bool defragmentNeeded() const {
+		return strVector->defragmentNeeded();
 	}
 
 	virtual bool merge(const CPCommitable &o, const PCommitable &p);

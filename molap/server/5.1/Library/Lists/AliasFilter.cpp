@@ -86,7 +86,7 @@ struct AliasFilter::AliasFilterHelper {
 
 		if (t_op != AliasFilter::NO_OP) {
 			string sub = new_s.substr(op_size);
-			double ret_val = StringUtils::stringToDouble(sub);
+			double ret_val = UTF8Comparer::stringToDouble(sub, false);
 			return filterexpression_type(t_op, ret_val, boost::regex());
 		}
 		return filterexpression_type(AliasFilter::NO_OP, 0, boost::regex(getRegex(new_s)));
@@ -166,7 +166,7 @@ struct AliasFilter::FilterOperator {
 			double val = 0.0;
 			if (cval.isString()) {
 				try {
-					val = StringUtils::stringToDouble(cval);
+					val = UTF8Comparer::stringToDouble(cval, false);
 				} catch (ParameterException &) {
 				}
 			} else if (cval.isNumeric()) {
@@ -255,25 +255,27 @@ ElementsType AliasFilter::apply(bool &worked)
 		}
 	}
 	CellValue def;
-	PCellStream cs = attrcube->calculateArea(area, CubeArea::ALL, ALL_RULES, true, UNLIMITED_UNSORTED_PLAN);
-	if (cs) {
-		while (cs->next()) {
-			const CellValue &val = cs->getValue();
-			const IdentifiersType &key = cs->getKey();
-			if ((queryFlag(SEARCH_ONE) || queryFlag(SEARCH_TWO)) && m_attr1_coord == key[0]) {
-				if (!val.isError() && m_subset_ref.getSearchAlias(key[1], def).isEmpty()) {
-					m_subset_ref.setSearchAlias(key[1], val);
+	if (area->getSize()) {
+		PCellStream cs = attrcube->calculateArea(area, CubeArea::ALL, ALL_RULES, true, UNLIMITED_UNSORTED_PLAN);
+		if (cs) {
+			while (cs->next()) {
+				const CellValue &val = cs->getValue();
+				const IdentifiersType &key = cs->getKey();
+				if ((queryFlag(SEARCH_ONE) || queryFlag(SEARCH_TWO)) && m_attr1_coord == key[0]) {
+					if (!val.isError() && m_subset_ref.getSearchAlias(key[1], def).isEmpty()) {
+						m_subset_ref.setSearchAlias(key[1], val);
+					}
 				}
-			}
-			if (queryFlag(SEARCH_TWO) && m_attr2_coord == key[0]) {
-				if (!val.isError()) {
-					m_subset_ref.setSearchAlias(key[1], val);
+				if (queryFlag(SEARCH_TWO) && m_attr2_coord == key[0]) {
+					if (!val.isError()) {
+						m_subset_ref.setSearchAlias(key[1], val);
+					}
 				}
-			}
-			if (queryFlag(USE_FILTEREXP) && !m_filterexp.empty() && flt.find(key[0]) != flt.end()) {
-				pair<set<int>, bool> &v = valid[key[1]][key[0]];
-				v.second = true;
-				v.first =check(val, key[0]);
+				if (queryFlag(USE_FILTEREXP) && !m_filterexp.empty() && flt.find(key[0]) != flt.end()) {
+					pair<set<int>, bool> &v = valid[key[1]][key[0]];
+					v.second = true;
+					v.first =check(val, key[0]);
+				}
 			}
 		}
 	}
@@ -313,10 +315,14 @@ void AliasFilter::applySettings()
 	if (m_settings.active) {
 		if ((m_settings.attribute1 != "" && queryFlag(SEARCH_ONE)) || ((!queryFlag(SEARCH_ONE) && !queryFlag(SEARCH_TWO)))) {
 			setFlag(SEARCH_ONE);
-			m_attr1_coord = m_subset_ref.validateAttribute(m_settings.attribute1);
+			Element::Type t;
+			m_attr1_coord = m_subset_ref.validateAttribute(m_settings.attribute1, t);
+			m_subset_ref.setSearchAliasType(t);
 		} else if (m_settings.attribute2 != "" && m_settings.attribute1 != "" && queryFlag(SEARCH_TWO)) {
-			m_attr1_coord = m_subset_ref.validateAttribute(m_settings.attribute1);
-			m_attr2_coord = m_subset_ref.validateAttribute(m_settings.attribute2);
+			Element::Type t1, t2;
+			m_attr1_coord = m_subset_ref.validateAttribute(m_settings.attribute1, t1);
+			m_attr2_coord = m_subset_ref.validateAttribute(m_settings.attribute2, t2);
+			m_subset_ref.setSearchAliasType(t1);
 		} else
 			throw ErrorException(ErrorException::ERROR_INVALID_TYPE, "Set-Attributes parameters do not match flags");
 	}
@@ -377,7 +383,8 @@ void AliasFilter::applySettings()
 				}
 			}
 			if (!dont_need_col[i]) {
-				IdentifierType attr = m_subset_ref.validateAttribute(attributes[i]);
+				Element::Type t;
+				IdentifierType attr = m_subset_ref.validateAttribute(attributes[i], t);
 				m_filterexp.insert(make_pair(attr, fe));
 				m_filter_coords.push_back(attr);
 			}

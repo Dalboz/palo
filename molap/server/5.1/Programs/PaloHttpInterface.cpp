@@ -309,10 +309,10 @@ void PaloHttpInterface::addHttpServer(const string& a, int port, int httpsPort, 
 		} else {
 			if (Server::getInstance(false)->getEncryptionType() != ENC_REQUIRED) {
 				EnablePaloInterface(paloHttpServer);
+				paloHttpServer->enableLogin();
 			}
 
 			paloHttpServer->enableServerInfo(httpsPort);
-			paloHttpServer->enableLogin();
 		}
 	}
 
